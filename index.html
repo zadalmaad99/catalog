@@ -702,10 +702,6 @@
     }
     .inline-age-save { background: #22c55e; color: #fff; }
     .inline-age-cancel { background: #f1f1f1; color: #555; }
-    @media (max-width: 640px) {
-      .row-field:nth-child(5), .row-field:nth-child(6) { display: none; } /* season, gender collapse first on phones */
-      #models-list-header span:nth-child(5), #models-list-header span:nth-child(6) { display: none; }
-    }
 
     /* Hide Tailwind CDN badge and Replit button */
     body > :last-child[style*="position: fixed"],
@@ -7520,83 +7516,116 @@ service cloud.firestore {
 
     // ── Inline Age Group editor (List/Details view) ──
     // A small popover reusing the same "from/to + unit, multiple ranges" shape as the full
-    // Add/Edit modal's age picker, but self-contained per row (its own rows array keyed by
-    // model id) so several rows could in principle be mid-edit without clobbering each other,
-    // unlike the modal's single shared `ageRangeRows` global.
-    window._inlineAgeEditors = {};
+    // Add/Edit modal's age picker. Rendered as a single floating element attached directly to
+    // <body> and positioned with getBoundingClientRect — NOT nested inside the row/list markup —
+    // because #models-list scrolls horizontally (overflow-x), and any CSS overflow on an
+    // ancestor clips absolutely-positioned descendants too, which was cutting the popover off.
+    window._inlineAgeEditorState = null; // { id, rows }
+    function getInlineAgePopoverEl() {
+      let el = document.getElementById('inline-age-popover');
+      if (!el) {
+        el = document.createElement('div');
+        el.id = 'inline-age-popover';
+        el.className = 'inline-age-editor';
+        el.style.display = 'none';
+        el.addEventListener('click', function(e) { e.stopPropagation(); });
+        document.body.appendChild(el);
+      }
+      return el;
+    }
     window.openInlineAgeEditor = function(id) {
-      // Only one open at a time — close any other before opening this one.
-      Object.keys(window._inlineAgeEditors).forEach(oid => { if (oid !== id) window.cancelInlineAgeEditor(oid); });
-      const m = allModels.find(x => x.id === id);
-      if (!m) return;
-      window._inlineAgeEditors[id] = ageRangeRowsFromString(cleanAgeStr(m.ageGroup || ''));
-      renderInlineAgeEditor(id);
-    };
-    function renderInlineAgeEditor(id) {
       const cell = document.querySelector(`.row-age-cell[data-id="${id}"]`);
-      const rows = window._inlineAgeEditors[id];
-      if (!cell || !rows) return;
+      const m = allModels.find(x => x.id === id);
+      if (!cell || !m) return;
+      window._inlineAgeEditorState = { id, rows: ageRangeRowsFromString(cleanAgeStr(m.ageGroup || '')) };
+      renderInlineAgeEditor();
+    };
+    function renderInlineAgeEditor() {
+      const state = window._inlineAgeEditorState;
+      const el = getInlineAgePopoverEl();
+      if (!state) { el.style.display = 'none'; return; }
+      const cell = document.querySelector(`.row-age-cell[data-id="${state.id}"]`);
+      if (!cell) { window._inlineAgeEditorState = null; el.style.display = 'none'; return; }
+      const rows = state.rows;
       const yearLabel = window.t ? window.t('ageYear') : 'y';
       const monthLabel = window.t ? window.t('ageMonth') : 'm';
-      cell.innerHTML = `
-        <div class="inline-age-editor" onclick="event.stopPropagation()">
-          ${rows.map((r, i) => `
-            <div class="inline-age-row">
-              <input type="number" min="0" max="99" class="inline-age-num" value="${escapeHtml(r.fromNum || '')}"
-                oninput="window.syncInlineAgeRow('${id}',${i},'fromNum',this.value)" />
-              <select class="inline-age-unit" onchange="window.syncInlineAgeRow('${id}',${i},'fromUnit',this.value)">
-                <option value="y" ${r.fromUnit !== 'm' ? 'selected' : ''}>${escapeHtml(yearLabel)}</option>
-                <option value="m" ${r.fromUnit === 'm' ? 'selected' : ''}>${escapeHtml(monthLabel)}</option>
-              </select>
-              <span style="color:#9ca3af;">–</span>
-              <input type="number" min="0" max="99" class="inline-age-num" value="${escapeHtml(r.toNum || '')}"
-                oninput="window.syncInlineAgeRow('${id}',${i},'toNum',this.value)" />
-              <select class="inline-age-unit" onchange="window.syncInlineAgeRow('${id}',${i},'toUnit',this.value)">
-                <option value="y" ${r.toUnit !== 'm' ? 'selected' : ''}>${escapeHtml(yearLabel)}</option>
-                <option value="m" ${r.toUnit === 'm' ? 'selected' : ''}>${escapeHtml(monthLabel)}</option>
-              </select>
-              ${rows.length > 1 ? `<button type="button" class="inline-age-row-remove" onclick="window.removeInlineAgeRow('${id}',${i})">✕</button>` : ''}
-            </div>`).join('')}
-          <div class="inline-age-actions">
-            <button type="button" class="inline-age-add" onclick="window.addInlineAgeRow('${id}')">+ ${window.t ? window.t('addRange') : 'Add range'}</button>
-            <div style="display:flex;gap:4px;">
-              <button type="button" class="inline-age-save" title="Save" onclick="window.saveInlineAgeEditor('${id}')">✓</button>
-              <button type="button" class="inline-age-cancel" title="Cancel" onclick="window.cancelInlineAgeEditor('${id}')">✕</button>
-            </div>
+      el.innerHTML = `
+        ${rows.map((r, i) => `
+          <div class="inline-age-row">
+            <input type="number" min="0" max="99" class="inline-age-num" value="${escapeHtml(r.fromNum || '')}"
+              oninput="window.syncInlineAgeRow(${i},'fromNum',this.value)" />
+            <select class="inline-age-unit" onchange="window.syncInlineAgeRow(${i},'fromUnit',this.value)">
+              <option value="y" ${r.fromUnit !== 'm' ? 'selected' : ''}>${escapeHtml(yearLabel)}</option>
+              <option value="m" ${r.fromUnit === 'm' ? 'selected' : ''}>${escapeHtml(monthLabel)}</option>
+            </select>
+            <span style="color:#9ca3af;">–</span>
+            <input type="number" min="0" max="99" class="inline-age-num" value="${escapeHtml(r.toNum || '')}"
+              oninput="window.syncInlineAgeRow(${i},'toNum',this.value)" />
+            <select class="inline-age-unit" onchange="window.syncInlineAgeRow(${i},'toUnit',this.value)">
+              <option value="y" ${r.toUnit !== 'm' ? 'selected' : ''}>${escapeHtml(yearLabel)}</option>
+              <option value="m" ${r.toUnit === 'm' ? 'selected' : ''}>${escapeHtml(monthLabel)}</option>
+            </select>
+            ${rows.length > 1 ? `<button type="button" class="inline-age-row-remove" onclick="window.removeInlineAgeRow(${i})">✕</button>` : ''}
+          </div>`).join('')}
+        <div class="inline-age-actions">
+          <button type="button" class="inline-age-add" onclick="window.addInlineAgeRow()">+ ${window.t ? window.t('addRange') : 'Add range'}</button>
+          <div style="display:flex;gap:4px;">
+            <button type="button" class="inline-age-save" title="Save" onclick="window.saveInlineAgeEditor()">✓</button>
+            <button type="button" class="inline-age-cancel" title="Cancel" onclick="window.cancelInlineAgeEditor()">✕</button>
           </div>
         </div>`;
+      // Position under the cell; flip above it if there isn't room below the viewport.
+      const rect = cell.getBoundingClientRect();
+      el.style.display = 'block';
+      const popH = el.offsetHeight;
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const top = (spaceBelow < popH + 12 && rect.top > popH + 12) ? (rect.top - popH - 4) : (rect.bottom + 4);
+      let left = rect.left;
+      const maxLeft = window.innerWidth - el.offsetWidth - 8;
+      if (left > maxLeft) left = Math.max(8, maxLeft);
+      el.style.top = Math.max(8, top) + 'px';
+      el.style.left = left + 'px';
     }
-    window.syncInlineAgeRow = function(id, i, key, val) {
-      if (!window._inlineAgeEditors[id] || !window._inlineAgeEditors[id][i]) return;
-      window._inlineAgeEditors[id][i][key] = val;
+    window.syncInlineAgeRow = function(i, key, val) {
+      const state = window._inlineAgeEditorState;
+      if (!state || !state.rows[i]) return;
+      state.rows[i][key] = val;
     };
-    window.addInlineAgeRow = function(id) {
-      if (!window._inlineAgeEditors[id]) return;
-      window._inlineAgeEditors[id].push({ fromNum: '', fromUnit: 'y', toNum: '', toUnit: 'y' });
-      renderInlineAgeEditor(id);
+    window.addInlineAgeRow = function() {
+      const state = window._inlineAgeEditorState;
+      if (!state) return;
+      state.rows.push({ fromNum: '', fromUnit: 'y', toNum: '', toUnit: 'y' });
+      renderInlineAgeEditor();
     };
-    window.removeInlineAgeRow = function(id, i) {
-      const rows = window._inlineAgeEditors[id];
-      if (!rows || rows.length <= 1) return;
-      rows.splice(i, 1);
-      renderInlineAgeEditor(id);
+    window.removeInlineAgeRow = function(i) {
+      const state = window._inlineAgeEditorState;
+      if (!state || state.rows.length <= 1) return;
+      state.rows.splice(i, 1);
+      renderInlineAgeEditor();
     };
-    window.cancelInlineAgeEditor = function(id) {
-      delete window._inlineAgeEditors[id];
-      applyFilters(); // re-render restores the plain-text cell
+    window.cancelInlineAgeEditor = function() {
+      window._inlineAgeEditorState = null;
+      const el = document.getElementById('inline-age-popover');
+      if (el) el.style.display = 'none';
     };
-    window.saveInlineAgeEditor = async function(id) {
-      const rows = window._inlineAgeEditors[id] || [];
-      const tags = rows.filter(r => r.fromNum && r.toNum).map(r => `${r.fromNum}${r.fromUnit}_${r.toNum}${r.toUnit}`);
-      delete window._inlineAgeEditors[id];
-      if (!tags.length) { showToast("Please fill in at least one age range", "error"); applyFilters(); return; }
-      await window.updateModelFieldInline(id, 'ageGroup', tags.join(','));
+    window.saveInlineAgeEditor = async function() {
+      const state = window._inlineAgeEditorState;
+      if (!state) return;
+      const tags = state.rows.filter(r => r.fromNum && r.toNum).map(r => `${r.fromNum}${r.fromUnit}_${r.toNum}${r.toUnit}`);
+      if (!tags.length) { showToast("Please fill in at least one age range", "error"); return; }
+      window.cancelInlineAgeEditor();
+      await window.updateModelFieldInline(state.id, 'ageGroup', tags.join(','));
     };
-    // Clicking anywhere outside an open inline age editor closes it without saving.
+    // Clicking anywhere outside the open popover (and outside the cell that opened it) closes it.
     document.addEventListener('click', function(e) {
-      Object.keys(window._inlineAgeEditors).forEach(id => {
-        if (!e.target.closest(`.row-age-cell[data-id="${id}"]`)) window.cancelInlineAgeEditor(id);
-      });
+      if (!window._inlineAgeEditorState) return;
+      if (e.target.closest('#inline-age-popover, .row-age-cell')) return;
+      window.cancelInlineAgeEditor();
+    }, true);
+    // Reposition (or close, if it scrolled out of the list) on scroll — the popover is fixed to
+    // the viewport, not the row, so it would otherwise drift away from its cell while scrolling.
+    document.addEventListener('scroll', function() {
+      if (window._inlineAgeEditorState) renderInlineAgeEditor();
     }, true);
 
     // ── Save Model ──
