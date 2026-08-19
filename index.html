@@ -595,19 +595,21 @@
 
     /* ── List (Details) view — Windows-Explorer-style one-line-per-model rows ── */
     #models-list-header {
-      display: flex; align-items: center; gap: 10px;
-      padding: 8px 12px; margin-bottom: 4px;
+      display: flex; align-items: center; gap: 20px;
+      padding: 8px 16px; margin-bottom: 4px;
       font-size: 0.68rem; font-weight: 800; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.03em;
       border-bottom: 1px solid #eee;
+      min-width: max-content;
     }
     #models-list-header .row-checkbox-wrap { width: 22px; flex-shrink: 0; }
     #models-list-header .row-thumb { width: 40px; flex-shrink: 0; }
-    #models-list-rows { display: flex; flex-direction: column; gap: 2px; }
+    #models-list-rows { display: flex; flex-direction: column; gap: 4px; min-width: max-content; }
     .model-row-item {
-      display: flex; align-items: center; gap: 10px;
-      padding: 6px 12px; border-radius: 10px;
+      display: flex; align-items: center; gap: 20px;
+      padding: 8px 16px; border-radius: 10px;
       background: #fff; border: 1px solid #f3ebe7;
       cursor: default; transition: background 0.12s, border-color 0.12s;
+      min-width: max-content;
     }
     .model-row-item:hover { background: #fdf6f3; border-color: #f0ddd3; }
     .model-row-item.selected { background: #fff1ea; border-color: #e85d3a; outline: none; }
@@ -631,16 +633,19 @@
     .row-soldout-tag { color: #ef4444; font-weight: 700; font-size: 0.68rem; }
     /* Fixed pixel widths (not flex-grow) — a header label and its column's data always share
        the exact same box, so they can never drift apart regardless of what's in other columns
-       (e.g. the actions column being empty in the header but full of buttons in each row). */
-    #models-list-header, .model-row-item { overflow-x: auto; }
+       (e.g. the actions column being empty in the header but full of buttons in each row).
+       #models-list itself scrolls horizontally as one unit (not each row separately) so the
+       header and every row always stay lined up while scrolling. */
+    #models-list { overflow-x: auto; }
     .row-field {
-      width: 128px; flex-shrink: 0; min-width: 0; font-size: 0.78rem; font-weight: 600; color: #555;
+      width: 140px; flex-shrink: 0; min-width: 0; font-size: 0.78rem; font-weight: 600; color: #555;
       overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      position: relative;
     }
     .row-price {
-      width: 90px; flex-shrink: 0; text-align: end; font-weight: 800; font-size: 0.85rem; color: #1a1a2e;
+      width: 100px; flex-shrink: 0; text-align: end; font-weight: 800; font-size: 0.85rem; color: #1a1a2e;
     }
-    .row-actions { display: flex; align-items: center; justify-content: flex-end; gap: 4px; width: 100px; flex-shrink: 0; }
+    .row-actions { display: flex; align-items: center; justify-content: flex-end; gap: 4px; width: 110px; flex-shrink: 0; }
     .row-actions button {
       display: flex; align-items: center; justify-content: center;
       width: 28px; height: 28px; border-radius: 8px; border: none; cursor: pointer;
@@ -656,6 +661,47 @@
     }
     .row-field-select:hover { border-color: #e5d5cd; background: #fff; }
     .row-field-select:focus { outline: none; border-color: #e85d3a; background: #fff; }
+    /* Inline-editable Price input */
+    .row-price-input {
+      width: 100%; height: 26px; border: 1px solid transparent; border-radius: 6px;
+      background: transparent; font-size: 0.85rem; font-weight: 800; color: #1a1a2e;
+      text-align: end; padding: 0 4px;
+    }
+    .row-price-input:hover { border-color: #e5d5cd; background: #fff; }
+    .row-price-input:focus { outline: none; border-color: #e85d3a; background: #fff; }
+    /* Inline Age Group editor popover — opens over the Age Group cell when clicked.
+       .row-field normally clips its text with overflow:hidden for the ellipsis effect, but that
+       would also clip this cell's absolutely-positioned popover, so it's turned back to visible
+       here — the age cell doesn't get the ellipsis truncation other columns get. */
+    .row-age-cell { cursor: pointer; border-radius: 6px; padding: 2px 4px; margin: 0 -4px; overflow: visible !important; }
+    .row-age-cell:hover { background: #fff; border: 1px solid #e5d5cd; }
+    .inline-age-editor {
+      position: absolute; top: 100%; margin-top: 4px; left: 0; z-index: 30; min-width: 240px;
+      background: #fff; border: 1px solid #e5d5cd; border-radius: 10px;
+      padding: 8px; box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+      cursor: default;
+    }
+    .inline-age-row { display: flex; align-items: center; gap: 4px; margin-bottom: 4px; }
+    .inline-age-num {
+      width: 44px; height: 26px; text-align: center; border-radius: 6px;
+      border: 1px solid #e5d5cd; font-size: 0.75rem; font-weight: 700;
+    }
+    .inline-age-unit {
+      height: 26px; border-radius: 6px; border: 1px solid #e5d5cd; font-size: 0.72rem; font-weight: 700;
+    }
+    .inline-age-row-remove {
+      width: 22px; height: 22px; border-radius: 6px; border: none; background: #fee2e2; color: #ef4444;
+      cursor: pointer; flex-shrink: 0; font-size: 0.7rem;
+    }
+    .inline-age-actions { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-top: 6px; }
+    .inline-age-add {
+      border: none; background: none; color: #e85d3a; font-weight: 700; font-size: 0.72rem; cursor: pointer;
+    }
+    .inline-age-save, .inline-age-cancel {
+      width: 26px; height: 26px; border-radius: 6px; border: none; cursor: pointer; font-weight: 800;
+    }
+    .inline-age-save { background: #22c55e; color: #fff; }
+    .inline-age-cancel { background: #f1f1f1; color: #555; }
     @media (max-width: 640px) {
       .row-field:nth-child(5), .row-field:nth-child(6) { display: none; } /* season, gender collapse first on phones */
       #models-list-header span:nth-child(5), #models-list-header span:nth-child(6) { display: none; }
@@ -6281,6 +6327,11 @@ service cloud.firestore {
       const genderCell = canEdit && !isPendingDelete
         ? rowFieldSelectHTML(m, 'genders', 'gender', m.gender || '')
         : `<span title="${escapeHtml(translateCatalogValue(m.gender) || '—')}">${escapeHtml(translateCatalogValue(m.gender) || '—')}</span>`;
+      const priceCell = (canEdit && !isPendingDelete)
+        ? `<input type="number" class="row-price-input" min="0" value="${parseFloat(m.price) || 0}"
+            onclick="event.stopPropagation()"
+            onchange="window.updateModelFieldInline('${safeModelId}','price',parseFloat(this.value)||0)" />`
+        : priceTxt;
       return `
         <div class="model-card model-row-item${isSoldOut ? ' sold-out' : ''}${isPendingDelete ? ' pending-delete' : ''}" data-id="${safeModelId}">
           ${viewOnlyMode ? '<span class="row-checkbox-wrap"></span>' : `<span class="row-checkbox-wrap">
@@ -6295,8 +6346,10 @@ service cloud.firestore {
           <span class="row-field">${typeCell}</span>
           <span class="row-field">${seasonCell}</span>
           <span class="row-field">${genderCell}</span>
-          <span class="row-field" title="${ageTxt}">${ageTxt}</span>
-          <span class="row-price">${priceTxt}</span>
+          ${(canEdit && !isPendingDelete)
+            ? `<span class="row-field row-age-cell" data-id="${safeModelId}" title="${ageTxt}" onclick="event.stopPropagation();window.openInlineAgeEditor('${safeModelId}')">${ageTxt}</span>`
+            : `<span class="row-field" title="${ageTxt}">${ageTxt}</span>`}
+          <span class="row-price">${priceCell}</span>
           <span class="row-actions">
             ${(canEdit && !isPendingDelete) ? `
             <button class="model-edit-btn" data-id="${safeModelId}" title="Edit Model">
@@ -7464,6 +7517,87 @@ service cloud.firestore {
         showToast("An error occurred while saving", "error");
       }
     };
+
+    // ── Inline Age Group editor (List/Details view) ──
+    // A small popover reusing the same "from/to + unit, multiple ranges" shape as the full
+    // Add/Edit modal's age picker, but self-contained per row (its own rows array keyed by
+    // model id) so several rows could in principle be mid-edit without clobbering each other,
+    // unlike the modal's single shared `ageRangeRows` global.
+    window._inlineAgeEditors = {};
+    window.openInlineAgeEditor = function(id) {
+      // Only one open at a time — close any other before opening this one.
+      Object.keys(window._inlineAgeEditors).forEach(oid => { if (oid !== id) window.cancelInlineAgeEditor(oid); });
+      const m = allModels.find(x => x.id === id);
+      if (!m) return;
+      window._inlineAgeEditors[id] = ageRangeRowsFromString(cleanAgeStr(m.ageGroup || ''));
+      renderInlineAgeEditor(id);
+    };
+    function renderInlineAgeEditor(id) {
+      const cell = document.querySelector(`.row-age-cell[data-id="${id}"]`);
+      const rows = window._inlineAgeEditors[id];
+      if (!cell || !rows) return;
+      const yearLabel = window.t ? window.t('ageYear') : 'y';
+      const monthLabel = window.t ? window.t('ageMonth') : 'm';
+      cell.innerHTML = `
+        <div class="inline-age-editor" onclick="event.stopPropagation()">
+          ${rows.map((r, i) => `
+            <div class="inline-age-row">
+              <input type="number" min="0" max="99" class="inline-age-num" value="${escapeHtml(r.fromNum || '')}"
+                oninput="window.syncInlineAgeRow('${id}',${i},'fromNum',this.value)" />
+              <select class="inline-age-unit" onchange="window.syncInlineAgeRow('${id}',${i},'fromUnit',this.value)">
+                <option value="y" ${r.fromUnit !== 'm' ? 'selected' : ''}>${escapeHtml(yearLabel)}</option>
+                <option value="m" ${r.fromUnit === 'm' ? 'selected' : ''}>${escapeHtml(monthLabel)}</option>
+              </select>
+              <span style="color:#9ca3af;">–</span>
+              <input type="number" min="0" max="99" class="inline-age-num" value="${escapeHtml(r.toNum || '')}"
+                oninput="window.syncInlineAgeRow('${id}',${i},'toNum',this.value)" />
+              <select class="inline-age-unit" onchange="window.syncInlineAgeRow('${id}',${i},'toUnit',this.value)">
+                <option value="y" ${r.toUnit !== 'm' ? 'selected' : ''}>${escapeHtml(yearLabel)}</option>
+                <option value="m" ${r.toUnit === 'm' ? 'selected' : ''}>${escapeHtml(monthLabel)}</option>
+              </select>
+              ${rows.length > 1 ? `<button type="button" class="inline-age-row-remove" onclick="window.removeInlineAgeRow('${id}',${i})">✕</button>` : ''}
+            </div>`).join('')}
+          <div class="inline-age-actions">
+            <button type="button" class="inline-age-add" onclick="window.addInlineAgeRow('${id}')">+ ${window.t ? window.t('addRange') : 'Add range'}</button>
+            <div style="display:flex;gap:4px;">
+              <button type="button" class="inline-age-save" title="Save" onclick="window.saveInlineAgeEditor('${id}')">✓</button>
+              <button type="button" class="inline-age-cancel" title="Cancel" onclick="window.cancelInlineAgeEditor('${id}')">✕</button>
+            </div>
+          </div>
+        </div>`;
+    }
+    window.syncInlineAgeRow = function(id, i, key, val) {
+      if (!window._inlineAgeEditors[id] || !window._inlineAgeEditors[id][i]) return;
+      window._inlineAgeEditors[id][i][key] = val;
+    };
+    window.addInlineAgeRow = function(id) {
+      if (!window._inlineAgeEditors[id]) return;
+      window._inlineAgeEditors[id].push({ fromNum: '', fromUnit: 'y', toNum: '', toUnit: 'y' });
+      renderInlineAgeEditor(id);
+    };
+    window.removeInlineAgeRow = function(id, i) {
+      const rows = window._inlineAgeEditors[id];
+      if (!rows || rows.length <= 1) return;
+      rows.splice(i, 1);
+      renderInlineAgeEditor(id);
+    };
+    window.cancelInlineAgeEditor = function(id) {
+      delete window._inlineAgeEditors[id];
+      applyFilters(); // re-render restores the plain-text cell
+    };
+    window.saveInlineAgeEditor = async function(id) {
+      const rows = window._inlineAgeEditors[id] || [];
+      const tags = rows.filter(r => r.fromNum && r.toNum).map(r => `${r.fromNum}${r.fromUnit}_${r.toNum}${r.toUnit}`);
+      delete window._inlineAgeEditors[id];
+      if (!tags.length) { showToast("Please fill in at least one age range", "error"); applyFilters(); return; }
+      await window.updateModelFieldInline(id, 'ageGroup', tags.join(','));
+    };
+    // Clicking anywhere outside an open inline age editor closes it without saving.
+    document.addEventListener('click', function(e) {
+      Object.keys(window._inlineAgeEditors).forEach(id => {
+        if (!e.target.closest(`.row-age-cell[data-id="${id}"]`)) window.cancelInlineAgeEditor(id);
+      });
+    }, true);
 
     // ── Save Model ──
     window.saveModel = async function() {
