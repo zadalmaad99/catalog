@@ -593,6 +593,62 @@
     }
     .model-card.selected { outline: 2.5px solid #e85d3a; outline-offset: -2px; }
 
+    /* ── List (Details) view — Windows-Explorer-style one-line-per-model rows ── */
+    #models-list-header {
+      display: flex; align-items: center; gap: 10px;
+      padding: 8px 12px; margin-bottom: 4px;
+      font-size: 0.68rem; font-weight: 800; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.03em;
+      border-bottom: 1px solid #eee;
+    }
+    #models-list-header .row-checkbox-wrap { width: 22px; flex-shrink: 0; }
+    #models-list-header .row-thumb { width: 40px; flex-shrink: 0; }
+    #models-list-rows { display: flex; flex-direction: column; gap: 2px; }
+    .model-row-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 6px 12px; border-radius: 10px;
+      background: #fff; border: 1px solid #f3ebe7;
+      cursor: default; transition: background 0.12s, border-color 0.12s;
+    }
+    .model-row-item:hover { background: #fdf6f3; border-color: #f0ddd3; }
+    .model-row-item.selected { background: #fff1ea; border-color: #e85d3a; outline: none; }
+    .model-row-item.sold-out { opacity: 0.55; }
+    .model-row-item .row-checkbox-wrap { width: 22px; flex-shrink: 0; display: flex; align-items: center; }
+    .model-row-item .card-checkbox {
+      position: static; opacity: 1; width: 18px; height: 18px;
+      border: 2px solid #d1d5db; background: #fff; box-shadow: none;
+    }
+    .model-row-item .card-checkbox:checked { background: #e85d3a; border-color: #e85d3a; background-size: 12px; }
+    .row-thumb {
+      width: 40px; height: 40px; flex-shrink: 0; border-radius: 8px; overflow: hidden;
+      background: #faf2ee; display: flex; align-items: center; justify-content: center;
+    }
+    .row-thumb img { width: 100%; height: 100%; object-fit: cover; }
+    .row-thumb-placeholder { font-size: 1.1rem; opacity: 0.4; }
+    .row-code {
+      width: 90px; flex-shrink: 0; font-weight: 800; font-size: 0.85rem; color: #1a1a2e;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .row-soldout-tag { color: #ef4444; font-weight: 700; font-size: 0.68rem; }
+    .row-field {
+      flex: 1 1 0; min-width: 0; font-size: 0.78rem; font-weight: 600; color: #555;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .row-price {
+      width: 90px; flex-shrink: 0; text-align: end; font-weight: 800; font-size: 0.85rem; color: #1a1a2e;
+    }
+    .row-actions { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+    .row-actions button {
+      display: flex; align-items: center; justify-content: center;
+      width: 28px; height: 28px; border-radius: 8px; border: none; cursor: pointer;
+      background: #f5f5f5; color: #555; transition: background 0.12s;
+    }
+    .row-actions .model-delete-btn { background: #fee2e2; color: #ef4444; }
+    .row-actions button:hover { filter: brightness(0.95); }
+    @media (max-width: 640px) {
+      .row-field:nth-child(5), .row-field:nth-child(6) { display: none; } /* season, gender collapse first on phones */
+      #models-list-header span:nth-child(5), #models-list-header span:nth-child(6) { display: none; }
+    }
+
     /* Hide Tailwind CDN badge and Replit button */
     body > :last-child[style*="position: fixed"],
     [data-theme-mode], .tailwind-badge,
@@ -2278,6 +2334,11 @@ service cloud.firestore {
           <span class="bc-sep">›</span>
           <span class="bc-current" id="breadcrumb-folder-name">Folder</span>
         </div>
+        <button id="breadcrumb-view-toggle-btn" type="button" onclick="window.toggleViewMode()" title="Toggle grid/list view"
+          style="display:flex;align-items:center;justify-content:center;padding:6px 10px;border-radius:10px;border:1px solid #e5d5cd;background:#fff;">
+          <svg id="view-toggle-icon-grid" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"/></svg>
+          <svg id="view-toggle-icon-list" class="w-4 h-4 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h4v4H4V6zm6 1h10M4 14h4v4H4v-4zm6 1h10"/></svg>
+        </button>
         <button id="breadcrumb-select-all-btn" type="button" onclick="window.toggleSelectAll()"
           style="display:flex;align-items:center;gap:4px;padding:6px 10px;border-radius:10px;border:1px solid #e5d5cd;background:#fff;font-size:0.72rem;font-weight:700;color:#1a1a2e;white-space:nowrap;">
           <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
@@ -2322,6 +2383,22 @@ service cloud.firestore {
 
       <!-- Models Grid -->
       <div id="models-grid" class="hidden grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
+      </div>
+
+      <!-- Models List (Windows-Explorer-style Details view: one row per model, stacked) -->
+      <div id="models-list" class="hidden flex-col">
+        <div id="models-list-header" class="model-row-header">
+          <span class="row-checkbox-wrap"></span>
+          <span class="row-thumb"></span>
+          <span class="row-code" data-i18n="colCode">Code</span>
+          <span class="row-field" data-i18n="type">Type</span>
+          <span class="row-field" data-i18n="season">Season</span>
+          <span class="row-field" data-i18n="gender">Gender</span>
+          <span class="row-field" data-i18n="colAge">Age Group</span>
+          <span class="row-price" data-i18n="colPrice">Price</span>
+          <span class="row-actions"></span>
+        </div>
+        <div id="models-list-rows"></div>
       </div>
     </div>
 
@@ -3645,6 +3722,11 @@ service cloud.firestore {
         type: 'النوع',
         season: 'الموسم',
         gender: 'الجنس',
+        colCode: 'الكود',
+        colAge: 'الفئة العمرية',
+        colPrice: 'السعر',
+        listViewToggle: 'عرض القائمة',
+        gridViewToggle: 'عرض الشبكة',
         noneOption: '— بدون —',
         excludeFromDiscount: 'استثناء من الخصم',
         excludeFromDiscountDesc: 'ما ينطبق عليه أي خصم (فولدر أو عام)',
@@ -3788,6 +3870,11 @@ service cloud.firestore {
         type: 'جۆر',
         season: 'وەرز',
         gender: 'ڕەگەز',
+        colCode: 'کۆد',
+        colAge: 'گروپی تەمەن',
+        colPrice: 'نرخ',
+        listViewToggle: 'دیمەنی لیست',
+        gridViewToggle: 'دیمەنی گرید',
         noneOption: '— هیچ —',
         excludeFromDiscount: 'دەرکردن لە داشکاندن',
         excludeFromDiscountDesc: 'هیچ داشکاندنێک ناخرێتە سەری (فۆڵدەر یان گشتی)',
@@ -3931,6 +4018,11 @@ service cloud.firestore {
         type: 'Type',
         season: 'Season',
         gender: 'Gender',
+        colCode: 'Code',
+        colAge: 'Age Group',
+        colPrice: 'Price',
+        listViewToggle: 'List view',
+        gridViewToggle: 'Grid view',
         noneOption: '— None —',
         excludeFromDiscount: 'Exclude from discount',
         excludeFromDiscountDesc: 'No discount applies to this (folder-wide or global)',
@@ -4124,6 +4216,9 @@ service cloud.firestore {
       ? 'https://catalog.sonbola.shop/'
       : window.location.href.split('?')[0];
     let selectedIds    = new Set();
+    // Grid = photo cards (default). List = one-line-per-model "Details" rows, like Windows
+    // Explorer's Details view — persisted per-browser so it survives reloads.
+    window._viewMode = localStorage.getItem('catalogViewMode') === 'list' ? 'list' : 'grid';
     // Each row is one age range, editable in place — matches sonbola.shop's own inventory
     // form (multiple persistent "from - to" rows with an Add/Remove range button per row)
     // instead of the old "type a range, press +, it becomes a static chip" flow.
@@ -6133,6 +6228,57 @@ service cloud.firestore {
         </div>`;
     }
 
+    // Windows-Explorer-"Details view"-style single-line row: thumbnail + code + the model's
+    // Type/Season/Gender/Age Group fields laid out in columns, all rows stacked vertically.
+    // Reuses .model-card/.card-checkbox/.model-edit-btn/etc so it plugs into the exact same
+    // selection, edit/move/delete and Select-All wiring the grid cards already use.
+    function rowHTML(m) {
+      const safeModelId   = escapeHtml(m.id);
+      const safeModelCode = escapeHtml((m.modelCode || '').replace(/^./,c=>c.toUpperCase()));
+      const imgSrc = optimizedCloudinaryUrl(m.imageUrl, '400x400');
+      const typeTxt   = escapeHtml(translateCatalogValue(m.category) || '—');
+      const seasonTxt = escapeHtml(translateCatalogValue(m.season) || '—');
+      const genderTxt = escapeHtml(translateCatalogValue(m.gender) || '—');
+      const ageTxt    = m.ageGroup
+        ? escapeHtml(cleanAgeStr(m.ageGroup).split(',').map(a=>formatAgeTag(a.trim())).filter(Boolean).join(', '))
+        : '—';
+      const priceTxt  = fmt(parseFloat(m.price) || 0);
+      const isSoldOut = !!m.soldOut;
+      const isPendingDelete = !!m.pendingDelete;
+      const canEdit = currentUser && !viewOnlyMode && window._canEditCatalogUI && window._canEditCatalogUI();
+      const canDelete = window._canDeleteModelUI && window._canDeleteModelUI();
+      return `
+        <div class="model-card model-row-item${isSoldOut ? ' sold-out' : ''}${isPendingDelete ? ' pending-delete' : ''}" data-id="${safeModelId}">
+          ${viewOnlyMode ? '<span class="row-checkbox-wrap"></span>' : `<span class="row-checkbox-wrap">
+            <input type="checkbox" class="card-checkbox" data-id="${safeModelId}" ${selectedIds.has(m.id) ? 'checked' : ''}>
+          </span>`}
+          <span class="row-thumb">
+            ${m.imageUrl
+              ? `<img src="${imgSrc}" alt="${safeModelCode}" loading="lazy" />`
+              : `<span class="row-thumb-placeholder">🖼️</span>`}
+          </span>
+          <span class="row-code">${safeModelCode}${isSoldOut ? ' <span class="row-soldout-tag">· Sold Out</span>' : ''}</span>
+          <span class="row-field" title="${typeTxt}">${typeTxt}</span>
+          <span class="row-field" title="${seasonTxt}">${seasonTxt}</span>
+          <span class="row-field" title="${genderTxt}">${genderTxt}</span>
+          <span class="row-field" title="${ageTxt}">${ageTxt}</span>
+          <span class="row-price">${priceTxt}</span>
+          <span class="row-actions">
+            ${(canEdit && !isPendingDelete) ? `
+            <button class="model-edit-btn" data-id="${safeModelId}" title="Edit Model">
+              <svg style="width:15px;height:15px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+            </button>
+            <button class="model-move-btn" data-id="${safeModelId}" title="Move to Folder">
+              <svg style="width:15px;height:15px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg>
+            </button>
+            ${canDelete ? `<button class="model-delete-btn" data-id="${safeModelId}" title="Mark as sold out?">
+              <svg style="width:15px;height:15px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+            </button>` : ''}
+            ` : ''}
+          </span>
+        </div>`;
+    }
+
     function sortModels(list) {
       // soldOut models always go to the very end
       const soldOutLast = (a, b) => (!!a.soldOut) - (!!b.soldOut);
@@ -6824,7 +6970,9 @@ service cloud.firestore {
     };
 
     function renderGrid(models) {
-      const grid  = document.getElementById("models-grid");
+      const grid     = document.getElementById("models-grid");
+      const list     = document.getElementById("models-list");
+      const listRows = document.getElementById("models-list-rows");
       const empty = document.getElementById("empty-state");
       // The empty state doubles as the "no search results" state — reword it accordingly.
       const emptyTitle = document.getElementById("empty-state-title");
@@ -6834,13 +6982,24 @@ service cloud.firestore {
       if (emptyDesc)  emptyDesc.textContent  = isSearchMode ? window.t('noResultsDesc') : window.t('folderEmptyDesc');
       if (emptyBtn && isSearchMode) emptyBtn.style.display = "none";
       if (!models.length) {
-        grid.classList.add("hidden");
+        grid.classList.add("hidden"); grid.innerHTML = '';
+        list.classList.add("hidden"); listRows.innerHTML = '';
         empty.classList.remove("hidden"); empty.classList.add("flex");
         return;
       }
       empty.classList.add("hidden"); empty.classList.remove("flex");
-      grid.classList.remove("hidden"); grid.classList.add("grid");
-      grid.innerHTML = models.map(m=>cardHTML(m)).join('');
+      // Only the container matching the active view mode gets rendered — the other is cleared,
+      // so selection/edit/move/delete listener wiring below (which queries globally, not
+      // scoped to one container) never double-attaches to stale off-screen markup.
+      if (window._viewMode === 'list') {
+        grid.classList.add("hidden"); grid.innerHTML = '';
+        list.classList.remove("hidden"); list.classList.add("flex");
+        listRows.innerHTML = models.map(m=>rowHTML(m)).join('');
+      } else {
+        list.classList.add("hidden"); listRows.innerHTML = '';
+        grid.classList.remove("hidden"); grid.classList.add("grid");
+        grid.innerHTML = models.map(m=>cardHTML(m)).join('');
+      }
       // Add event listeners for model card checkboxes and action buttons
       document.querySelectorAll('.card-checkbox[data-id]').forEach(checkbox => {
         checkbox.addEventListener('click', function(e) {
@@ -6910,6 +7069,25 @@ service cloud.firestore {
       updateSelectionBar();
       updateSelectAllBtn();
     }
+
+    // ── Grid / List (Details) view toggle ──
+    function syncViewToggleIcon() {
+      const gridIcon = document.getElementById('view-toggle-icon-grid');
+      const listIcon = document.getElementById('view-toggle-icon-list');
+      const btn      = document.getElementById('breadcrumb-view-toggle-btn');
+      const isList = window._viewMode === 'list';
+      if (gridIcon) gridIcon.classList.toggle('hidden', isList);
+      if (listIcon) listIcon.classList.toggle('hidden', !isList);
+      if (btn) btn.title = window.t ? window.t(isList ? 'gridViewToggle' : 'listViewToggle') : '';
+    }
+    window.toggleViewMode = function() {
+      window._viewMode = window._viewMode === 'list' ? 'grid' : 'list';
+      localStorage.setItem('catalogViewMode', window._viewMode);
+      syncViewToggleIcon();
+      applyFilters();
+    };
+    if (document.readyState !== 'loading') syncViewToggleIcon();
+    else document.addEventListener('DOMContentLoaded', syncViewToggleIcon);
 
     function updateAdminUI() {
       const role          = window._currentUserRole || null;
@@ -7490,7 +7668,7 @@ service cloud.firestore {
     // rendered cards (rather than re-deriving the filter) means Select All is automatically
     // correct in both cases, including every filter combination search supports.
     function getVisibleModelIds() {
-      return Array.from(document.querySelectorAll('#models-grid .model-card[data-id]')).map(el => el.getAttribute('data-id'));
+      return Array.from(document.querySelectorAll('#models-grid .model-card[data-id], #models-list .model-card[data-id]')).map(el => el.getAttribute('data-id'));
     }
     window.toggleSelectAll = function() {
       const visibleIds = getVisibleModelIds();
