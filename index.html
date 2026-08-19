@@ -669,14 +669,14 @@
     }
     .row-price-input:hover { border-color: #e5d5cd; background: #fff; }
     .row-price-input:focus { outline: none; border-color: #e85d3a; background: #fff; }
-    /* Inline Age Group editor popover — opens over the Age Group cell when clicked.
-       .row-field normally clips its text with overflow:hidden for the ellipsis effect, but that
-       would also clip this cell's absolutely-positioned popover, so it's turned back to visible
-       here — the age cell doesn't get the ellipsis truncation other columns get. */
-    .row-age-cell { cursor: pointer; border-radius: 6px; padding: 2px 4px; margin: 0 -4px; overflow: visible !important; }
+    /* Inline Age Group editor popover — opens when the Age Group cell is clicked. The popover
+       itself is a body-attached floating element (positioned via JS), not nested inside this
+       cell, so the cell keeps the normal .row-field ellipsis-truncated text like every other
+       column — long/multi-range age text no longer bleeds into the Price column next to it. */
+    .row-age-cell { cursor: pointer; border-radius: 6px; padding: 2px 4px; margin: 0 -4px; }
     .row-age-cell:hover { background: #fff; border: 1px solid #e5d5cd; }
     .inline-age-editor {
-      position: absolute; top: 100%; margin-top: 4px; left: 0; z-index: 30; min-width: 240px;
+      position: fixed; z-index: 9999; min-width: 240px;
       background: #fff; border: 1px solid #e5d5cd; border-radius: 10px;
       padding: 8px; box-shadow: 0 8px 24px rgba(0,0,0,0.15);
       cursor: default;
