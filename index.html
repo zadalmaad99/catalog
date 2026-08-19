@@ -673,7 +673,12 @@
        itself is a body-attached floating element (positioned via JS), not nested inside this
        cell, so the cell keeps the normal .row-field ellipsis-truncated text like every other
        column — long/multi-range age text no longer bleeds into the Price column next to it. */
-    .row-age-cell { cursor: pointer; border-radius: 6px; padding: 2px 4px; margin: 0 -4px; }
+    /* Multiple age ranges stack one-per-line instead of the ellipsis-truncated single line
+       every other .row-field column gets — overrides .row-field's white-space:nowrap. The row
+       itself grows to fit (align-items:center keeps every other single-line column centered). */
+    .row-age-cell, .row-age-display { white-space: normal; overflow: visible; text-overflow: clip; line-height: 1.35; padding: 4px 0; }
+    .row-age-cell div, .row-age-display div { overflow: hidden; text-overflow: ellipsis; }
+    .row-age-cell { cursor: pointer; border-radius: 6px; padding: 4px 4px; margin: 0 -4px; }
     .row-age-cell:hover { background: #fff; border: 1px solid #e5d5cd; }
     .inline-age-editor {
       position: fixed; z-index: 9999; min-width: 240px;
@@ -6306,8 +6311,14 @@ service cloud.firestore {
       const safeModelId   = escapeHtml(m.id);
       const safeModelCode = escapeHtml((m.modelCode || '').replace(/^./,c=>c.toUpperCase()));
       const imgSrc = optimizedCloudinaryUrl(m.imageUrl, '400x400');
-      const ageTxt    = m.ageGroup
-        ? escapeHtml(cleanAgeStr(m.ageGroup).split(',').map(a=>formatAgeTag(a.trim())).filter(Boolean).join(', '))
+      const ageRangesList = m.ageGroup
+        ? cleanAgeStr(m.ageGroup).split(',').map(a=>formatAgeTag(a.trim())).filter(Boolean)
+        : [];
+      const ageTxt = ageRangesList.length ? escapeHtml(ageRangesList.join(', ')) : '—';
+      // Each range gets its own line instead of one comma-joined, ellipsis-truncated string —
+      // a model with several age ranges is common enough that "..." was hiding real data.
+      const ageDisplay = ageRangesList.length
+        ? ageRangesList.map(r => `<div>${escapeHtml(r)}</div>`).join('')
         : '—';
       const priceTxt  = fmt(parseFloat(m.price) || 0);
       const isSoldOut = !!m.soldOut;
@@ -6343,8 +6354,8 @@ service cloud.firestore {
           <span class="row-field">${seasonCell}</span>
           <span class="row-field">${genderCell}</span>
           ${(canEdit && !isPendingDelete)
-            ? `<span class="row-field row-age-cell" data-id="${safeModelId}" title="${ageTxt}" onclick="event.stopPropagation();window.openInlineAgeEditor('${safeModelId}')">${ageTxt}</span>`
-            : `<span class="row-field" title="${ageTxt}">${ageTxt}</span>`}
+            ? `<span class="row-field row-age-cell" data-id="${safeModelId}" title="${ageTxt}" onclick="event.stopPropagation();window.openInlineAgeEditor('${safeModelId}')">${ageDisplay}</span>`
+            : `<span class="row-field row-age-display" title="${ageTxt}">${ageDisplay}</span>`}
           <span class="row-price">${priceCell}</span>
           <span class="row-actions">
             ${(canEdit && !isPendingDelete) ? `
