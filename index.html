@@ -629,14 +629,18 @@
       overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     }
     .row-soldout-tag { color: #ef4444; font-weight: 700; font-size: 0.68rem; }
+    /* Fixed pixel widths (not flex-grow) — a header label and its column's data always share
+       the exact same box, so they can never drift apart regardless of what's in other columns
+       (e.g. the actions column being empty in the header but full of buttons in each row). */
+    #models-list-header, .model-row-item { overflow-x: auto; }
     .row-field {
-      flex: 1 1 0; min-width: 0; font-size: 0.78rem; font-weight: 600; color: #555;
+      width: 128px; flex-shrink: 0; min-width: 0; font-size: 0.78rem; font-weight: 600; color: #555;
       overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     }
     .row-price {
       width: 90px; flex-shrink: 0; text-align: end; font-weight: 800; font-size: 0.85rem; color: #1a1a2e;
     }
-    .row-actions { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+    .row-actions { display: flex; align-items: center; justify-content: flex-end; gap: 4px; width: 100px; flex-shrink: 0; }
     .row-actions button {
       display: flex; align-items: center; justify-content: center;
       width: 28px; height: 28px; border-radius: 8px; border: none; cursor: pointer;
@@ -644,6 +648,14 @@
     }
     .row-actions .model-delete-btn { background: #fee2e2; color: #ef4444; }
     .row-actions button:hover { filter: brightness(0.95); }
+    /* Inline-editable Type/Season/Gender dropdowns inside a list row */
+    .row-field-select {
+      width: 100%; height: 26px; border: 1px solid transparent; border-radius: 6px;
+      background: transparent; font-size: 0.78rem; font-weight: 600; color: #555;
+      padding: 0 4px; cursor: pointer; appearance: auto;
+    }
+    .row-field-select:hover { border-color: #e5d5cd; background: #fff; }
+    .row-field-select:focus { outline: none; border-color: #e85d3a; background: #fff; }
     @media (max-width: 640px) {
       .row-field:nth-child(5), .row-field:nth-child(6) { display: none; } /* season, gender collapse first on phones */
       #models-list-header span:nth-child(5), #models-list-header span:nth-child(6) { display: none; }
@@ -6232,13 +6244,26 @@ service cloud.firestore {
     // Type/Season/Gender/Age Group fields laid out in columns, all rows stacked vertically.
     // Reuses .model-card/.card-checkbox/.model-edit-btn/etc so it plugs into the exact same
     // selection, edit/move/delete and Select-All wiring the grid cards already use.
+    // Builds a <select> for one of the row's admin-configurable fields (category/season/gender),
+    // pre-selected to the model's current value, saving straight to Firestore on change. Falls
+    // back to plain text when the viewer can't edit (view-only share links, regular users).
+    function rowFieldSelectHTML(m, listKey, modelField, currentValue) {
+      const options = window._catalogOptions[listKey] || [];
+      const opts = options.map(v =>
+        `<option value="${escapeHtml(v)}"${currentValue === v ? ' selected' : ''}>${escapeHtml(translateCatalogValue(v))}</option>`
+      ).join('');
+      return `<select class="row-field-select" data-id="${escapeHtml(m.id)}" data-field="${modelField}"
+        onclick="event.stopPropagation()"
+        onchange="window.updateModelFieldInline('${escapeHtml(m.id)}','${modelField}',this.value)">
+        <option value=""${currentValue ? '' : ' selected'}>—</option>
+        ${opts}
+      </select>`;
+    }
+
     function rowHTML(m) {
       const safeModelId   = escapeHtml(m.id);
       const safeModelCode = escapeHtml((m.modelCode || '').replace(/^./,c=>c.toUpperCase()));
       const imgSrc = optimizedCloudinaryUrl(m.imageUrl, '400x400');
-      const typeTxt   = escapeHtml(translateCatalogValue(m.category) || '—');
-      const seasonTxt = escapeHtml(translateCatalogValue(m.season) || '—');
-      const genderTxt = escapeHtml(translateCatalogValue(m.gender) || '—');
       const ageTxt    = m.ageGroup
         ? escapeHtml(cleanAgeStr(m.ageGroup).split(',').map(a=>formatAgeTag(a.trim())).filter(Boolean).join(', '))
         : '—';
@@ -6247,6 +6272,15 @@ service cloud.firestore {
       const isPendingDelete = !!m.pendingDelete;
       const canEdit = currentUser && !viewOnlyMode && window._canEditCatalogUI && window._canEditCatalogUI();
       const canDelete = window._canDeleteModelUI && window._canDeleteModelUI();
+      const typeCell = canEdit && !isPendingDelete
+        ? rowFieldSelectHTML(m, 'categories', 'category', m.category || '')
+        : `<span title="${escapeHtml(translateCatalogValue(m.category) || '—')}">${escapeHtml(translateCatalogValue(m.category) || '—')}</span>`;
+      const seasonCell = canEdit && !isPendingDelete
+        ? rowFieldSelectHTML(m, 'seasons', 'season', m.season || '')
+        : `<span title="${escapeHtml(translateCatalogValue(m.season) || '—')}">${escapeHtml(translateCatalogValue(m.season) || '—')}</span>`;
+      const genderCell = canEdit && !isPendingDelete
+        ? rowFieldSelectHTML(m, 'genders', 'gender', m.gender || '')
+        : `<span title="${escapeHtml(translateCatalogValue(m.gender) || '—')}">${escapeHtml(translateCatalogValue(m.gender) || '—')}</span>`;
       return `
         <div class="model-card model-row-item${isSoldOut ? ' sold-out' : ''}${isPendingDelete ? ' pending-delete' : ''}" data-id="${safeModelId}">
           ${viewOnlyMode ? '<span class="row-checkbox-wrap"></span>' : `<span class="row-checkbox-wrap">
@@ -6258,9 +6292,9 @@ service cloud.firestore {
               : `<span class="row-thumb-placeholder">🖼️</span>`}
           </span>
           <span class="row-code">${safeModelCode}${isSoldOut ? ' <span class="row-soldout-tag">· Sold Out</span>' : ''}</span>
-          <span class="row-field" title="${typeTxt}">${typeTxt}</span>
-          <span class="row-field" title="${seasonTxt}">${seasonTxt}</span>
-          <span class="row-field" title="${genderTxt}">${genderTxt}</span>
+          <span class="row-field">${typeCell}</span>
+          <span class="row-field">${seasonCell}</span>
+          <span class="row-field">${genderCell}</span>
           <span class="row-field" title="${ageTxt}">${ageTxt}</span>
           <span class="row-price">${priceTxt}</span>
           <span class="row-actions">
@@ -7415,6 +7449,21 @@ service cloud.firestore {
       // Font size sliders removed — no longer part of the per-model form.
       setSaving(false);
     }
+
+    // ── Inline field edit (List/Details view dropdowns: Type/Season/Gender) ──
+    // A quick single-field save, bypassing the full Add/Edit modal — used by the <select>s
+    // rendered in rowHTML() so a model's category/season/gender can be changed with one click
+    // straight from the list row.
+    window.updateModelFieldInline = async function(id, field, value) {
+      if (!window._fbSave) return;
+      const data = {}; data[field] = value;
+      try {
+        await window._fbSave(data, id);
+      } catch(err) {
+        console.error(err);
+        showToast("An error occurred while saving", "error");
+      }
+    };
 
     // ── Save Model ──
     window.saveModel = async function() {
