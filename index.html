@@ -5283,6 +5283,16 @@ service cloud.firestore {
     function getDiscountedPrice(model) {
       const folder = allFolders.find(f => f.id === model.folderId);
       let discount = null;
+      // A model explicitly marked "Exclude from discount" must never show a discounted
+      // price anywhere. cardHTML() already re-implements this check locally (so the grid/
+      // list badges get it right), but every other caller of this shared helper — the PDF
+      // and PPTX exports, the downloaded/shared product image, the public share-link quick
+      // view — was calling getDiscountedPrice() directly and skipping it, so an excluded
+      // item could still be exported or shown to a customer at a discounted price.
+      if (model.excludeFromDiscount) {
+        const p = parseFloat(model.price) || 0;
+        return { orig: p, final: p, hasDiscount: false, pct: 0 };
+      }
       if (folder && folder.discount && folder.discount.value > 0) {
         discount = folder.discount;
       } else if (globalDiscount && globalDiscount.value > 0) {
