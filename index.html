@@ -7717,20 +7717,11 @@ service cloud.firestore {
       const imageSize = document.getElementById("f-img-size").value;
       if (!code || !age || !price) { showToast("Please fill in all required fields", "error"); isSaving=false; return; }
       if (!uploadedImageUrl && !selectedFile) { showToast("Please select an image", "error"); isSaving=false; return; }
-      // Same code within the folder is no longer a hard block — a product with several
-      // colors/photos legitimately gets one card per color, all sharing the same code
-      // (e.g. two "S304" cards, one red one navy) instead of forcing a fake "S304.1"/
-      // "S304.2" suffix that only exists to dodge this check. Still confirm first though,
-      // so a genuine typo (re-typing an existing code by mistake) doesn't silently create
-      // a confusing duplicate.
-      const duplicate = allModels.find(m =>
-        m.folderId === (currentFolderId || null) &&
-        (m.modelCode || '').toLowerCase() === code.toLowerCase() &&
-        m.id !== editingId
-      );
-      if (duplicate && !window.confirm(`Code "${code}" already exists in this folder. Save anyway as another color/variant of the same model?`)) {
-        isSaving = false; return;
-      }
+      // The same code within a folder is allowed on purpose — a product with several
+      // colors/photos gets one card per color, all sharing the same code (e.g. two "S304"
+      // cards, one red one navy) instead of a fake "S304.1"/"S304.2" suffix just to dodge
+      // a uniqueness check. No prompt either — the confirm() here used to block on every
+      // save with a blocking native dialog the user didn't want to see.
       setSaving(true);
       try {
         let imageUrl = uploadedImageUrl;
