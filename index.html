@@ -669,7 +669,7 @@
     .row-price {
       width: 100px; flex-shrink: 0; text-align: end; font-weight: 800; font-size: 0.85rem; color: #1a1a2e;
     }
-    .row-actions { display: flex; align-items: center; justify-content: flex-end; gap: 4px; width: 110px; flex-shrink: 0; }
+    .row-actions { display: flex; align-items: center; justify-content: flex-end; gap: 4px; width: 148px; flex-shrink: 0; }
     .row-actions button {
       display: flex; align-items: center; justify-content: center;
       width: 28px; height: 28px; border-radius: 8px; border: none; cursor: pointer;
@@ -6578,6 +6578,9 @@ service cloud.firestore {
           <span class="row-price">${priceCell}</span>
           <span class="row-actions">
             ${(canEdit && !isPendingDelete) ? `
+            <button class="model-top-btn" data-id="${safeModelId}" title="Move to Top">
+              <svg style="width:15px;height:15px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 15l7-7 7 7M12 8v13"/></svg>
+            </button>
             <button class="model-edit-btn" data-id="${safeModelId}" title="Edit Model">
               <svg style="width:15px;height:15px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
             </button>
@@ -7322,6 +7325,13 @@ service cloud.firestore {
         });
       });
       // ── Action button handlers ──
+      document.querySelectorAll('.model-top-btn[data-id]').forEach(btn => {
+        btn.addEventListener('click', function(e) {
+          e.stopPropagation();
+          const modelId = this.getAttribute('data-id');
+          if (modelId) window.moveModelToTop(modelId);
+        });
+      });
       document.querySelectorAll('.model-edit-btn[data-id]').forEach(btn => {
         btn.addEventListener('click', function(e) {
           e.stopPropagation();
@@ -7361,7 +7371,7 @@ service cloud.firestore {
         if (!card) return;
         card.addEventListener('click', function(e) {
           // if clicked on a button inside the overlay — do nothing extra
-          if (e.target.closest('.model-edit-btn, .model-move-btn, .model-delete-btn')) return;
+          if (e.target.closest('.model-top-btn, .model-edit-btn, .model-move-btn, .model-delete-btn')) return;
           // toggle this overlay
           const isVisible = ov.style.opacity === '1';
           _hideActiveOverlay();
@@ -7738,6 +7748,26 @@ service cloud.firestore {
       const data = {}; data[field] = value;
       try {
         await window._fbSave(data, id);
+      } catch(err) {
+        console.error(err);
+        showToast("An error occurred while saving", "error");
+      }
+    };
+
+    // ── Move a model to the top of its folder's default (serial) order ──
+    // The default sort is ascending `serial`, so "move to top" just needs a serial lower than
+    // every other model currently in that folder — one below whatever the current minimum is.
+    window.moveModelToTop = async function(id) {
+      const m = allModels.find(x => x.id === id);
+      if (!m || !window._fbSave) return;
+      const siblings = allModels.filter(x => x.folderId === m.folderId && x.id !== id);
+      const minSerial = siblings.length ? Math.min(...siblings.map(x => Number(x.serial) || 0)) : 0;
+      const newSerial = minSerial - 1;
+      m.serial = newSerial; // reflect immediately, don't wait on the round-trip
+      applyFilters();
+      try {
+        await window._fbSave({ serial: newSerial }, id);
+        showToast(`⬆️ ${m.modelCode || ''}`, "success");
       } catch(err) {
         console.error(err);
         showToast("An error occurred while saving", "error");
@@ -8360,14 +8390,22 @@ service cloud.firestore {
       const outMime = format==='png' ? 'image/png' : 'image/jpeg';
       const outExt = format==='png' ? 'png' : 'jpg';
       const padLen = String(models.length).length; // digits needed e.g. 3 for 100+ models
-      for(let _i=0;_i<models.length;_i++){const m=models[_i];
+      // Fetch+draw+encode each image in parallel (capped, same helper the share paths use) —
+      // this used to be a plain sequential for-loop awaiting one image fully before starting the
+      // next, so total wait was the sum of every image's network+canvas time; with 80+ models
+      // that was minutes. A small progress overlay now reflects real completions too, instead of
+      // the button just sitting on "Preparing..." with no feedback for the whole download.
+      let _dlDone = 0;
+      showGalleryProgress(models.length);
+      await mapWithConcurrency(models, 6, async (m, _i) => {
+      if (_galleryCancelled) return;
       const _seq=String(_i+1).padStart(Math.max(padLen,3),'0');
         try{
           let imgUrl = downloadCloudinaryUrl(m.imageUrl, m.imageSize, format);
-          if(!imgUrl) continue;
+          if(!imgUrl) return;
           let blob;
           if(imgUrl.startsWith('data:')){const res=await fetch(imgUrl);blob=await res.blob();}
-          else{const resp=await fetch(imgUrl);if(!resp.ok) continue;blob=await resp.blob();}
+          else{const resp=await fetch(imgUrl);if(!resp.ok) return;blob=await resp.blob();}
           const ct=blob.type||"image/jpeg";const ext=ct.includes("png")?"png":ct.includes("webp")?"webp":"jpg";
           let filename=`${_seq}_${m.modelCode||'model'}.${ext}`;
           if(mode==="all"||mode==="code"){
@@ -8503,7 +8541,15 @@ service cloud.firestore {
           } else { filename=`${_seq}_${m.modelCode||'model'}_${mode}.${outExt}`; }
           zip.file(filename,blob);
         }catch(e){console.warn(e);}
+        _dlDone++;
+        updateGalleryProgress(_dlDone, models.length, m.modelCode || '');
+      });
+      if (_galleryCancelled) {
+        _galleryCancelled = false;
+        hideGalleryProgress(_dlDone, true);
+        return;
       }
+      hideGalleryProgress(models.length, false);
       const zipBlob=await zip.generateAsync({type:"blob"});
       const ml={"all":"all-info","clean":"clean","code":"with-code","manual":"manual"}[mode]||mode;
       const zipName=buildDownloadFilename(`sonbola-${ml}-${models.length}models`, 'zip');
