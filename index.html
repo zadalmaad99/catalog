@@ -4439,16 +4439,18 @@ service cloud.firestore {
     window.escapeHtml = escapeHtml;
 
     function showToast(msg, type="success") {
-      // Re-enabled: this was a silent no-op, which meant every error path that calls it
-      // (e.g. openEditModal's permission check) failed with literally zero user feedback —
-      // a blocked action looked identical to a dead button. The #toast markup/CSS (line ~123)
-      // was left in place and unused this whole time.
+      // Only errors show. This was a silent no-op for a while, which meant every error path
+      // that calls it (e.g. openEditModal's permission check) failed with literally zero user
+      // feedback — a blocked action looked identical to a dead button. Re-enabled for errors,
+      // but success toasts ("Added ✓" etc.) stay silent as before — that's noisy on every save
+      // and the app already shows the new/updated card, so it doesn't need its own popup too.
+      if (type !== "error") return;
       const toast = document.getElementById("toast");
       const msgEl = document.getElementById("toast-message");
       if (!toast || !msgEl) return;
       msgEl.textContent = msg;
       toast.classList.remove("success", "error");
-      toast.classList.add(type === "error" ? "error" : "success");
+      toast.classList.add("error");
       toast.classList.add("show");
     }
     window.fmt = fmt;
