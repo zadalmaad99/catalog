@@ -8437,6 +8437,29 @@ service cloud.firestore {
     // <script> tag (this app is split across several classic script blocks), where a plain
     // function declaration like this one isn't in scope.
     window.buildDownloadFilename = buildDownloadFilename;
+
+    // ── ZIP filename's folder-name part ──
+    // Prefers the folder actually being viewed; falls back to the selected models' own folder
+    // when they all share one (e.g. downloading from search results), and finally to a generic
+    // name if the selection spans several folders. Strips characters that aren't valid in a
+    // filename on Windows/Android (a folder name is free-text, so nothing stops someone naming
+    // one "Winter/2026" or similar).
+    function dlZipBaseName(models) {
+      let name = null;
+      if (currentFolderId) {
+        const f = allFolders.find(x => x.id === currentFolderId);
+        if (f && f.name) name = f.name;
+      }
+      if (!name) {
+        const folderIds = [...new Set((models || []).map(m => m.folderId).filter(Boolean))];
+        if (folderIds.length === 1) {
+          const f = allFolders.find(x => x.id === folderIds[0]);
+          if (f && f.name) name = f.name;
+        }
+      }
+      name = (name || 'Sonbola').replace(/[\\/:*?"<>|]+/g, '-').replace(/\s+/g, '_').trim();
+      return name || 'Sonbola';
+    }
     // Runs an async task over a list with a cap on how many run at once. Used by the share
     // paths, which previously awaited each image in sequence (total wait = sum of every
     // image's fetch+render time). Firing all of them at once instead would be fastest but
@@ -8650,8 +8673,10 @@ service cloud.firestore {
       }
       hideGalleryProgress(models.length, false);
       const zipBlob=await zip.generateAsync({type:"blob"});
-      const ml={"all":"all-info","clean":"clean","code":"with-code","manual":"manual"}[mode]||mode;
-      const zipName=buildDownloadFilename(`sonbola-${ml}-${models.length}models`, 'zip');
+      // Folder name + a short mode suffix instead of "sonbola-all-info-82models" — that old name
+      // was long and didn't say anything the folder name + style doesn't already say shorter.
+      const suffix={"all":"Full","code":"Code","clean":"Clean","manual":"Original"}[mode]||mode;
+      const zipName=buildDownloadFilename(`${dlZipBaseName(models)}_${suffix}`, 'zip');
       // Android app: hand the ZIP to the native bridge (WebView drops blob-anchor downloads).
       const zipSavedNatively = await window.saveBlobToDevice(zipBlob, zipName, false);
       if (!zipSavedNatively) {
