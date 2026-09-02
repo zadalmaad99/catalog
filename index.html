@@ -390,6 +390,10 @@
       margin-bottom: 20px;
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
+    #gp-stay-hint {
+      text-align: center; font-size: 0.68rem; font-weight: 700; color: #fbbf24;
+      margin-top: 12px;
+    }
     #gp-bar-wrap {
       background: rgba(255,255,255,0.1);
       border-radius: 999px;
@@ -1459,26 +1463,55 @@
     // ── Android bridge: save files natively when running inside the Sonbola Android app ──
     // In a regular browser window.AndroidDownloader doesn't exist, so this resolves false
     // and every caller falls back to its normal browser download path unchanged.
-    window.saveBlobToDevice = function(blob, filename, quiet) {
-      return new Promise(function(resolve) {
-        if (!window.AndroidDownloader || !blob) { resolve(false); return; }
-        try {
-          var reader = new FileReader();
-          reader.onloadend = function() {
-            try {
-              var dataUrl = reader.result || '';
-              var comma = dataUrl.indexOf(',');
-              var semi  = dataUrl.indexOf(';');
-              var mime  = semi > 5 ? dataUrl.substring(5, semi) : (blob.type || 'application/octet-stream');
-              var base64 = comma >= 0 ? dataUrl.substring(comma + 1) : '';
-              window.AndroidDownloader.saveBase64File(base64, filename || 'download', mime, !!quiet);
-              resolve(true);
-            } catch(e) { resolve(false); }
-          };
-          reader.onerror = function() { resolve(false); };
-          reader.readAsDataURL(blob);
-        } catch(e) { resolve(false); }
+    // Reads one Blob slice as base64 (just the payload after the data: URL's comma).
+    function _blobSliceToBase64(slice) {
+      return new Promise(function(resolve, reject) {
+        var reader = new FileReader();
+        reader.onloadend = function() {
+          var dataUrl = reader.result || '';
+          var comma = dataUrl.indexOf(',');
+          resolve(comma >= 0 ? dataUrl.substring(comma + 1) : '');
+        };
+        reader.onerror = function() { reject(reader.error); };
+        reader.readAsDataURL(slice);
       });
+    }
+    window.saveBlobToDevice = async function(blob, filename, quiet) {
+      if (!window.AndroidDownloader || !blob) return false;
+      // Preferred path: stream the file to the native side in small chunks via an open/write/
+      // close session, instead of marshaling the whole file as one base64 string in a single
+      // bridge call. A multi-model ZIP export can be tens of MB of base64 — a single call that
+      // large is exactly the kind of payload that has been seen to silently fail on-device (the
+      // JS side finishes building the file fine, the one giant native call just never survives),
+      // which is what actually produced the "download failed" toast on large exports. Chunking
+      // means no single call ever carries more than ~1MB, regardless of total file size.
+      if (window.AndroidDownloader.openFile) {
+        let sessionId = '';
+        try { sessionId = window.AndroidDownloader.openFile(filename || 'download', blob.type || 'application/octet-stream'); }
+        catch(e) { sessionId = ''; }
+        if (sessionId) {
+          try {
+            const CHUNK = 768 * 1024; // raw bytes per chunk (~1MB as base64)
+            for (let offset = 0; offset < blob.size; offset += CHUNK) {
+              const base64 = await _blobSliceToBase64(blob.slice(offset, offset + CHUNK));
+              const ok = window.AndroidDownloader.writeChunk(sessionId, base64);
+              if (!ok) throw new Error('writeChunk failed');
+            }
+            window.AndroidDownloader.finishFile(sessionId, !!quiet);
+            return true;
+          } catch(e) {
+            try { window.AndroidDownloader.abortFile(sessionId); } catch(e2) {}
+            // fall through to the legacy single-call path below
+          }
+        }
+      }
+      // Legacy path — either an older app build without the chunked bridge, or the chunked
+      // attempt above failed outright (e.g. openFile itself errored).
+      try {
+        const base64 = await _blobSliceToBase64(blob);
+        window.AndroidDownloader.saveBase64File(base64, filename || 'download', blob.type || 'application/octet-stream', !!quiet);
+        return true;
+      } catch(e) { return false; }
     };
   </script>
   <script>
@@ -2667,6 +2700,10 @@ service cloud.firestore {
       <span id="gp-count-text">0 / 0</span>
       <span id="gp-pct-text">0%</span>
     </div>
+    <!-- Leaving the app suspends its background work on most phones (battery-saver process
+         freezing), which can silently stop or abandon an in-progress download — this warns the
+         user upfront rather than have them discover it after the fact. -->
+    <p id="gp-stay-hint" data-i18n="stayInAppDuringDownload">⚠️ Stay in the app until this finishes</p>
     <p id="gp-done-check">✓ All images downloaded!</p>
     <button id="gp-cancel-btn"
       onclick="cancelGalleryDownload()"
@@ -3854,6 +3891,7 @@ service cloud.firestore {
         noneOption: '— بدون —',
         excludeFromDiscount: 'استثناء من الخصم',
         excludeFromDiscountDesc: 'ما ينطبق عليه أي خصم (فولدر أو عام)',
+        stayInAppDuringDownload: '⚠️ ابقَ داخل التطبيق حتى ينتهي التنزيل',
         excludedBadge: 'غير مشمولة',
         cancel: 'إلغاء',
         save: 'حفظ',
@@ -4002,6 +4040,7 @@ service cloud.firestore {
         noneOption: '— هیچ —',
         excludeFromDiscount: 'دەرکردن لە داشکاندن',
         excludeFromDiscountDesc: 'هیچ داشکاندنێک ناخرێتە سەری (فۆڵدەر یان گشتی)',
+        stayInAppDuringDownload: '⚠️ لە ئەپەکە بمێنەرەوە تا داگرتنەکە تەواو بێت',
         excludedBadge: 'بێ داشکاندن',
         cancel: 'پاشگەزبوونەوە',
         save: 'پاشەکەوتکردن',
@@ -4150,6 +4189,7 @@ service cloud.firestore {
         noneOption: '— None —',
         excludeFromDiscount: 'Exclude from discount',
         excludeFromDiscountDesc: 'No discount applies to this (folder-wide or global)',
+        stayInAppDuringDownload: '⚠️ Stay in the app until this finishes',
         excludedBadge: 'Excluded',
         cancel: 'Cancel',
         save: 'Save',
@@ -8826,20 +8866,19 @@ service cloud.firestore {
       showGalleryProgress(models.length);
 
       let done = 0;
-      // Pipeline the network fetch + canvas render for the NEXT photo while the CURRENT one is
-      // being saved (native bridge call / file write) — those two steps don't depend on each
-      // other, so overlapping them cuts the total wait roughly in half instead of doing every
-      // photo's fetch-then-save fully back to back.
-      let _nextBlobPromise = models.length ? renderBadgedImageBlob(models[0], mode) : null;
-      for (let _i = 0; _i < models.length; _i++) {
-        const m = models[_i];
+      // Render + save several photos in parallel (capped) instead of one photo fully at a time
+      // — rendering was already pipelined one-ahead of saving, but saves themselves (fetch +
+      // canvas render + native bridge write) still ran strictly back to back, which is what made
+      // this feel so slow with 80+ images selected. The anchor-click browser fallback further
+      // down is left un-parallelized on purpose (concurrent native <a download> clicks can spawn
+      // overlapping save dialogs) — it only runs outside the Android app, and never when the
+      // Android bridge or a picked File System Access folder handles the save instead.
+      await mapWithConcurrency(models, 3, async (m, _i) => {
+        if (_galleryCancelled) return;
         const _seq = String(_i + 1).padStart(Math.max(padLen, 2), '0');
-        if (_galleryCancelled) break;
         try {
-          updateGalleryProgress(done, models.length, m.modelCode || ('Image ' + (_i+1)));
-          const blob = await _nextBlobPromise;
-          if (_i + 1 < models.length) _nextBlobPromise = renderBadgedImageBlob(models[_i + 1], mode);
-          if (!blob) continue;
+          const blob = await renderBadgedImageBlob(m, mode);
+          if (!blob || _galleryCancelled) return;
 
           // Save image — Android app bridge first (saves straight into the phone's
           // Pictures/Gallery), then File System Access API, then anchor-click fallback.
@@ -8871,7 +8910,7 @@ service cloud.firestore {
           updateGalleryProgress(done, models.length, m.modelCode || ('Image ' + (_i+1)));
           if (label) label.textContent = `${done} / ${models.length}`;
         } catch(e) { console.warn('gallery dl error', e); }
-      }
+      });
       const wasCancelled = _galleryCancelled;
       hideGalleryProgress(done, wasCancelled);
       if (wasCancelled) {
