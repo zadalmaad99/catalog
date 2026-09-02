@@ -9975,7 +9975,7 @@ service cloud.firestore {
               ${thumb}
               <div class="min-w-0">
                 <p class="text-xs font-bold text-gray-700 truncate">${escapeHtml(it.label)}</p>
-                <p class="text-[10px] text-gray-400">${_statsTypeLabel[it.type] || it.type}${dateLabel ? ' — last: ' + dateLabel : ''}</p>
+                <p class="text-[10px] text-gray-400">${escapeHtml(_statsTypeLabel[it.type] || it.type)}${dateLabel ? ' — last: ' + dateLabel : ''}</p>
               </div>
             </div>
             <span class="text-xs font-black shrink-0" style="color:${color}">${it.count}×</span>
