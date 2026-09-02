@@ -6465,7 +6465,7 @@ service cloud.firestore {
           </div>
         </div>` : '';
       return `
-        <div class="model-card group relative rounded-2xl overflow-hidden bg-white shadow-sm hover:shadow-lg transition-shadow cursor-pointer border border-orange-50${isPendingDelete && isAdminViewing ? ' pending-delete' : ''}" data-id="${safeModelId}">
+        <div class="model-card group relative rounded-2xl overflow-hidden bg-white shadow-sm hover:shadow-lg transition-shadow cursor-pointer border border-orange-50${isPendingDelete && isAdminViewing ? ' pending-delete' : ''}${selectedIds.has(m.id) ? ' selected' : ''}" data-id="${safeModelId}">
           <div class="aspect-[3/4] overflow-hidden bg-gray-100">
             ${m.imageUrl
               ? `<img src="${imgSrc}" alt="${safeModelCode}" class="card-img w-full h-full object-cover" loading="lazy" />`
@@ -6559,7 +6559,7 @@ service cloud.firestore {
             onchange="window.updateModelFieldInline('${safeModelId}','price',Math.max(0,parseFloat(this.value)||0))" />`
         : priceTxt;
       return `
-        <div class="model-card model-row-item${isSoldOut ? ' sold-out' : ''}${isPendingDelete ? ' pending-delete' : ''}" data-id="${safeModelId}">
+        <div class="model-card model-row-item${isSoldOut ? ' sold-out' : ''}${isPendingDelete ? ' pending-delete' : ''}${selectedIds.has(m.id) ? ' selected' : ''}" data-id="${safeModelId}">
           ${viewOnlyMode ? '<span class="row-checkbox-wrap"></span>' : `<span class="row-checkbox-wrap">
             <input type="checkbox" class="card-checkbox" data-id="${safeModelId}" ${selectedIds.has(m.id) ? 'checked' : ''}>
           </span>`}
@@ -7764,9 +7764,12 @@ service cloud.firestore {
       }
     };
 
-    // ── Move a model one step up/down in its folder's default (serial) order ──
-    // The default sort is ascending `serial`. Swapping serial with the immediate neighbor in
-    // that order moves the model exactly one row, instead of jumping straight to the top.
+    // ── Move a model (or its whole selected group) one step up/down ──
+    // The default sort is ascending `serial`. Clicking a row's arrow while that row is part of
+    // a multi-selection moves the entire selected group together, one step, preserving their
+    // relative order — otherwise just that one row moves. Either way the moved model(s) stay
+    // checkbox-selected/highlighted afterwards, so it's obvious at a glance what was just moved
+    // and repeat clicks keep acting on the same row(s) until manually deselected.
     window.moveModelStep = async function(id, dir) {
       const m = allModels.find(x => x.id === id);
       if (!m || !window._fbSave) return;
@@ -7774,21 +7777,50 @@ service cloud.firestore {
       const siblings = allModels
         .filter(x => x.folderId === m.folderId)
         .sort((a, b) => soldOutLast(a, b) || (Number(a.serial) || 0) - (Number(b.serial) || 0));
-      const idx = siblings.findIndex(x => x.id === id);
-      const otherIdx = idx + dir;
-      if (idx < 0 || otherIdx < 0 || otherIdx >= siblings.length) return; // already first/last
-      const other = siblings[otherIdx];
-      const aSerial = Number(m.serial) || 0, bSerial = Number(other.serial) || 0;
-      // Equal serials (legacy data, or two models never reordered before) would make a swap a
-      // no-op — nudge them one integer apart first so the swap always actually moves something.
-      if (aSerial === bSerial) { m.serial = dir < 0 ? aSerial - 1 : aSerial + 1; }
-      else { m.serial = bSerial; other.serial = aSerial; }
+
+      const selectedInFolder = siblings.filter(x => selectedIds.has(x.id));
+      const moveSet = (selectedIds.has(id) && selectedInFolder.length > 1)
+        ? new Set(selectedInFolder.map(x => x.id))
+        : new Set([id]);
+
+      const dirty = new Set();
+      let changed = false;
+      // One pass: wherever a moved item sits directly next to a non-moved neighbor on the
+      // direction side, swap their serials — moves every contiguous run in moveSet past its
+      // neighbor exactly once, keeping items already adjacent to each other from swapping.
+      if (dir < 0) {
+        for (let i = 1; i < siblings.length; i++) {
+          if (moveSet.has(siblings[i].id) && !moveSet.has(siblings[i - 1].id)) {
+            const a = siblings[i], b = siblings[i - 1];
+            let aS = Number(a.serial) || 0, bS = Number(b.serial) || 0;
+            if (aS === bS) aS = bS - 1; else { const t = aS; aS = bS; bS = t; }
+            a.serial = aS; b.serial = bS;
+            siblings[i - 1] = a; siblings[i] = b;
+            dirty.add(a.id).add(b.id); changed = true;
+          }
+        }
+      } else {
+        for (let i = siblings.length - 2; i >= 0; i--) {
+          if (moveSet.has(siblings[i].id) && !moveSet.has(siblings[i + 1].id)) {
+            const a = siblings[i], b = siblings[i + 1];
+            let aS = Number(a.serial) || 0, bS = Number(b.serial) || 0;
+            if (aS === bS) aS = bS + 1; else { const t = aS; aS = bS; bS = t; }
+            a.serial = aS; b.serial = bS;
+            siblings[i + 1] = a; siblings[i] = b;
+            dirty.add(a.id).add(b.id); changed = true;
+          }
+        }
+      }
+      if (!changed) return; // already at the top/bottom
+
+      moveSet.forEach(mid => { selectedIds.add(mid); });
       applyFilters(); // reflect immediately, don't wait on the round-trip
+      updateSelectionBar(); updateSelectAllBtn();
       try {
-        await Promise.all([
-          window._fbSave({ serial: m.serial }, m.id),
-          window._fbSave({ serial: other.serial }, other.id),
-        ]);
+        await Promise.all([...dirty].map(mid => {
+          const mm = allModels.find(x => x.id === mid);
+          return mm ? window._fbSave({ serial: mm.serial }, mid) : Promise.resolve();
+        }));
       } catch(err) {
         console.error(err);
         showToast("An error occurred while saving", "error");
