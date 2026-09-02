@@ -2823,10 +2823,14 @@ service cloud.firestore {
           </div>
         </div>
 
-        <!-- Color Options -->
+        <!-- Color Options — collapsed by default, same expand/collapse pattern as the
+             Statistics tab's sections (toggleStatsSection toggles any #id + #id-chevron pair) -->
         <div>
-          <label class="block text-xs font-bold text-gray-600 mb-2">🎨 Label Colors</label>
-          <div class="bg-gray-50 rounded-xl p-3 space-y-3">
+          <button type="button" onclick="toggleStatsSection('color-options-panel')" class="w-full flex items-center justify-between mb-2">
+            <label class="block text-xs font-bold text-gray-600">🎨 Label Colors</label>
+            <svg class="w-3.5 h-3.5 text-gray-400 stats-section-chevron" id="color-options-panel-chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"/></svg>
+          </button>
+          <div id="color-options-panel" class="hidden bg-gray-50 rounded-xl p-3 space-y-3">
 
             <!-- Age Color -->
             <div class="flex items-center justify-between gap-3">
@@ -2951,19 +2955,25 @@ service cloud.firestore {
         <!-- Font Size Options: removed — font sizes are now controlled only at folder/global level
              (per-model overrides used to always save 100%, which blocked folder settings from taking effect) -->
 
-        <!-- Exclude from Discount -->
-        <div class="flex items-center justify-between bg-red-50 border border-red-100 rounded-xl px-4 py-3">
-          <div class="flex items-center gap-2">
-            <span style="font-size:1.1rem">🚫</span>
-            <div>
-              <p class="text-sm font-bold text-gray-800" data-i18n="excludeFromDiscount">Exclude from discount</p>
-              <p class="text-xs text-gray-400 mt-0.5" data-i18n="excludeFromDiscountDesc">No discount applies to this (folder-wide or global)</p>
+        <!-- Exclude from Discount — collapsed by default (same pattern as Label Colors above) -->
+        <div>
+          <button type="button" onclick="toggleStatsSection('exclude-discount-panel')" class="w-full flex items-center justify-between mb-2">
+            <span class="text-xs font-bold text-gray-600 flex items-center gap-1">🚫 <span data-i18n="excludeFromDiscount">Exclude from discount</span></span>
+            <svg class="w-3.5 h-3.5 text-gray-400 stats-section-chevron" id="exclude-discount-panel-chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"/></svg>
+          </button>
+          <div id="exclude-discount-panel" class="hidden flex items-center justify-between bg-red-50 border border-red-100 rounded-xl px-4 py-3">
+            <div class="flex items-center gap-2">
+              <span style="font-size:1.1rem">🚫</span>
+              <div>
+                <p class="text-sm font-bold text-gray-800" data-i18n="excludeFromDiscount">Exclude from discount</p>
+                <p class="text-xs text-gray-400 mt-0.5" data-i18n="excludeFromDiscountDesc">No discount applies to this (folder-wide or global)</p>
+              </div>
             </div>
-          </div>
-          <div style="position:relative;width:44px;height:24px;flex-shrink:0;cursor:pointer;" onclick="(function(){var cb=document.getElementById('f-exclude-discount');cb.checked=!cb.checked;var track=document.getElementById('exclude-discount-track');var thumb=document.getElementById('exclude-discount-thumb');if(cb.checked){track.style.background='#ef4444';thumb.style.transform='translateX(20px)';}else{track.style.background='#d1d5db';thumb.style.transform='translateX(0)';}})()">
-            <input type="checkbox" id="f-exclude-discount" style="position:absolute;opacity:0;width:0;height:0;" onchange="(function(cb){var track=document.getElementById('exclude-discount-track');var thumb=document.getElementById('exclude-discount-thumb');if(cb.checked){track.style.background='#ef4444';thumb.style.transform='translateX(20px)';}else{track.style.background='#d1d5db';thumb.style.transform='translateX(0)';};})(this)" />
-            <div id="exclude-discount-track" style="width:44px;height:24px;border-radius:12px;background:#d1d5db;transition:background 0.2s;"></div>
-            <div id="exclude-discount-thumb" style="position:absolute;top:2px;left:2px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,0.2);transition:transform 0.2s;"></div>
+            <div style="position:relative;width:44px;height:24px;flex-shrink:0;cursor:pointer;" onclick="(function(){var cb=document.getElementById('f-exclude-discount');cb.checked=!cb.checked;var track=document.getElementById('exclude-discount-track');var thumb=document.getElementById('exclude-discount-thumb');if(cb.checked){track.style.background='#ef4444';thumb.style.transform='translateX(20px)';}else{track.style.background='#d1d5db';thumb.style.transform='translateX(0)';}})()">
+              <input type="checkbox" id="f-exclude-discount" style="position:absolute;opacity:0;width:0;height:0;" onchange="(function(cb){var track=document.getElementById('exclude-discount-track');var thumb=document.getElementById('exclude-discount-thumb');if(cb.checked){track.style.background='#ef4444';thumb.style.transform='translateX(20px)';}else{track.style.background='#d1d5db';thumb.style.transform='translateX(0)';};})(this)" />
+              <div id="exclude-discount-track" style="width:44px;height:24px;border-radius:12px;background:#d1d5db;transition:background 0.2s;"></div>
+              <div id="exclude-discount-thumb" style="position:absolute;top:2px;left:2px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,0.2);transition:transform 0.2s;"></div>
+            </div>
           </div>
         </div>
 
