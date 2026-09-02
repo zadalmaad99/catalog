@@ -4439,7 +4439,17 @@ service cloud.firestore {
     window.escapeHtml = escapeHtml;
 
     function showToast(msg, type="success") {
-      // Toast notifications are disabled — kept as a no-op since many code paths still call it.
+      // Re-enabled: this was a silent no-op, which meant every error path that calls it
+      // (e.g. openEditModal's permission check) failed with literally zero user feedback —
+      // a blocked action looked identical to a dead button. The #toast markup/CSS (line ~123)
+      // was left in place and unused this whole time.
+      const toast = document.getElementById("toast");
+      const msgEl = document.getElementById("toast-message");
+      if (!toast || !msgEl) return;
+      msgEl.textContent = msg;
+      toast.classList.remove("success", "error");
+      toast.classList.add(type === "error" ? "error" : "success");
+      toast.classList.add("show");
     }
     window.fmt = fmt;
 
@@ -9881,7 +9891,7 @@ service cloud.firestore {
             <td class="px-2 py-1.5 text-gray-500 whitespace-nowrap">${timeLabel}</td>
             <td class="px-2 py-1.5 font-semibold">${_statsRoleLabel(e.role)}</td>
             <td class="px-2 py-1.5 whitespace-nowrap">${actionIcon}${escapeHtml(actionLabel)}</td>
-            <td class="px-2 py-1.5 text-gray-500">${e.device || ''}</td>
+            <td class="px-2 py-1.5 text-gray-500">${escapeHtml(e.device || '')}</td>
             <td class="px-2 py-1.5 text-gray-500">${escapeHtml(place)}</td>
           </tr>`;
         }).join('') : '<tr><td colspan="5" class="text-center text-gray-400 py-4">No data in this range</td></tr>';
