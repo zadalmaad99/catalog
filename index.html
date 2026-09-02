@@ -6398,7 +6398,7 @@ service cloud.firestore {
       const priceCell = (canEdit && !isPendingDelete)
         ? `<input type="number" class="row-price-input" min="0" value="${parseFloat(m.price) || 0}"
             onclick="event.stopPropagation()"
-            onchange="window.updateModelFieldInline('${safeModelId}','price',parseFloat(this.value)||0)" />`
+            onchange="window.updateModelFieldInline('${safeModelId}','price',Math.max(0,parseFloat(this.value)||0))" />`
         : priceTxt;
       return `
         <div class="model-card model-row-item${isSoldOut ? ' sold-out' : ''}${isPendingDelete ? ' pending-delete' : ''}" data-id="${safeModelId}">
@@ -7708,7 +7708,10 @@ service cloud.firestore {
       const serial = parseInt(document.getElementById("f-serial").value) || 0;
       window.syncAgeRanges();
       const age   = document.getElementById("f-age").value.trim();
-      const price = parseFloat(document.getElementById("f-price").value) || 0;
+      // The field has no min="0" and this was a bare parseFloat(...)||0, so typing a stray
+      // "-" (or a paste like "-5000") saved straight through as a negative price — displayed
+      // as-is on the card, in PDF/PPTX exports, and on the public share link. Clamp to 0.
+      const price = Math.max(0, parseFloat(document.getElementById("f-price").value) || 0);
       const imageSize = document.getElementById("f-img-size").value;
       if (!code || !age || !price) { showToast("Please fill in all required fields", "error"); isSaving=false; return; }
       if (!uploadedImageUrl && !selectedFile) { showToast("Please select an image", "error"); isSaving=false; return; }
