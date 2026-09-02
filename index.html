@@ -119,6 +119,30 @@
     .drop-zone { border: 2px dashed #d4a59a; transition: all 0.2s; }
     .drop-zone.dragover { border-color: #e85d3a; background: #fff5f2; }
 
+    /* FancySelect — replaces every native <select>; see fancySelectify() in the script.
+       .fancy-select-btn keeps the original <select>'s own Tailwind classes (width, height,
+       border, bg, font-size...), so only the parts a <select> doesn't have need rules here. */
+    .fancy-select { position: relative; }
+    .fancy-select-btn {
+      display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;
+      cursor: pointer; text-align: inherit; -webkit-tap-highlight-color: transparent;
+    }
+    .fancy-select-btn .fs-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .fancy-select-btn .fs-arrow { flex-shrink: 0; opacity: 0.5; display: flex; transition: transform 0.15s ease; }
+    .fancy-select-btn.open .fs-arrow { transform: rotate(180deg); }
+    .fancy-select-panel {
+      position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 200;
+      background: #fff; border: 1px solid #e5e7eb; border-radius: 0.75rem;
+      box-shadow: 0 12px 28px rgba(0,0,0,0.14); max-height: 240px; overflow-y: auto; padding: 4px;
+    }
+    .fancy-select-panel.hidden { display: none; }
+    .fancy-select-option {
+      padding: 0.55rem 0.7rem; border-radius: 0.5rem; font-size: 0.875rem;
+      font-weight: 600; cursor: pointer; transition: background 0.1s ease;
+    }
+    .fancy-select-option:hover { background: #fff5f2; }
+    .fancy-select-option.selected { background: #fff0ea; color: #e85d3a; }
+
     /* Centered popup notification — stays open until the user taps the × (no auto-hide). */
     .toast {
       position: fixed; top: 50%; left: 50%; z-index: 10000;
@@ -4437,6 +4461,128 @@ service cloud.firestore {
         .replace(/'/g, '&#39;');
     }
     window.escapeHtml = escapeHtml;
+
+    // ── FancySelect: replaces every native <select> with a custom-styled dropdown ──
+    // Android WebView's native <select> popup renders Kurdish (and some Arabic) glyphs as
+    // dots/boxes — it uses the OS's own list-picker UI, which doesn't necessarily have the
+    // font this page uses. A plain HTML dropdown built from page markup renders with the
+    // page's own fonts everywhere (web, Android WebView, every language), so it doesn't hit
+    // that bug at all.
+    //
+    // The native <select> is kept in the DOM (just hidden) instead of removed, so every
+    // existing call site that does `document.getElementById('f-category').value = x`,
+    // reads `.value`, appends/replaces `<option>`s, or listens for `onchange="..."` keeps
+    // working completely unchanged — this only replaces how the control is drawn and
+    // operated, not its data model. New <select>s that get added later (list-view rows,
+    // age-range rows, admin-configured option lists reloading, etc.) are picked up
+    // automatically by the MutationObserver below, so no render function anywhere needs to
+    // call into this explicitly.
+    let _fsOpenPanel = null;
+    function _fsClose() {
+      if (!_fsOpenPanel) return;
+      _fsOpenPanel.panel.classList.add('hidden');
+      _fsOpenPanel.btn.classList.remove('open');
+      _fsOpenPanel = null;
+    }
+    document.addEventListener('click', (e) => {
+      if (_fsOpenPanel && !_fsOpenPanel.wrap.contains(e.target)) _fsClose();
+    });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') _fsClose(); });
+
+    function fancySelectify(select) {
+      if (!select || select.tagName !== 'SELECT' || select._fsDone || select.multiple) return;
+      select._fsDone = true;
+
+      const wrap = document.createElement('div');
+      wrap.className = 'fancy-select';
+      select.parentNode.insertBefore(wrap, select);
+      wrap.appendChild(select);
+      select.style.cssText = 'position:absolute;opacity:0;pointer-events:none;width:1px;height:1px;';
+      select.tabIndex = -1;
+
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      // Reuse the select's own Tailwind utility classes so every instance (form fields,
+      // filter bars, inline list-row selects, the sort dropdown...) keeps looking exactly
+      // like it already did — this file styles selects entirely through those classes.
+      btn.className = (select.className || '') + ' fancy-select-btn';
+      const label = document.createElement('span');
+      label.className = 'fs-label';
+      const arrow = document.createElement('span');
+      arrow.className = 'fs-arrow';
+      arrow.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M6 9l6 6 6-6"/></svg>';
+      btn.appendChild(label);
+      btn.appendChild(arrow);
+      wrap.appendChild(btn);
+
+      const panel = document.createElement('div');
+      panel.className = 'fancy-select-panel hidden';
+      wrap.appendChild(panel);
+
+      const state = { wrap, btn, panel };
+
+      function syncLabel() {
+        const opt = select.options[select.selectedIndex];
+        label.textContent = opt ? opt.textContent : '';
+      }
+      function renderOptions() {
+        panel.innerHTML = '';
+        Array.from(select.options).forEach((opt, i) => {
+          const row = document.createElement('div');
+          row.className = 'fancy-select-option' + (i === select.selectedIndex ? ' selected' : '');
+          row.textContent = opt.textContent;
+          row.addEventListener('click', () => {
+            if (select.value !== opt.value) {
+              _fsRawSet(opt.value);
+              select.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+            syncLabel();
+            _fsClose();
+          });
+          panel.appendChild(row);
+        });
+      }
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (_fsOpenPanel === state) { _fsClose(); return; }
+        _fsClose();
+        renderOptions();
+        panel.classList.remove('hidden');
+        btn.classList.add('open');
+        _fsOpenPanel = state;
+      });
+
+      // Intercept `.value =` (used all over this file, e.g. openEditModal populating the
+      // form from a model) so the visible label updates immediately, not just after the
+      // dropdown is next opened by the user.
+      const proto = Object.getPrototypeOf(select);
+      const desc = Object.getOwnPropertyDescriptor(proto, 'value') || Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value');
+      const _fsRawSet = (v) => desc.set.call(select, v);
+      Object.defineProperty(select, 'value', {
+        get() { return desc.get.call(select); },
+        set(v) { _fsRawSet(v); syncLabel(); if (_fsOpenPanel === state) renderOptions(); },
+        configurable: true,
+      });
+
+      syncLabel();
+    }
+    window.fancySelectify = fancySelectify;
+
+    function enhanceFancySelects(root) {
+      (root || document).querySelectorAll('select').forEach(fancySelectify);
+    }
+    window.enhanceFancySelects = enhanceFancySelects;
+
+    enhanceFancySelects(document);
+    new MutationObserver((muts) => {
+      for (const m of muts) {
+        for (const node of m.addedNodes) {
+          if (node.nodeType !== 1) continue;
+          if (node.tagName === 'SELECT') fancySelectify(node);
+          else if (node.querySelectorAll) node.querySelectorAll('select').forEach(fancySelectify);
+        }
+      }
+    }).observe(document.body, { childList: true, subtree: true });
 
     function showToast(msg, type="success") {
       // Only errors show. This was a silent no-op for a while, which meant every error path
