@@ -669,7 +669,7 @@
     .row-price {
       width: 100px; flex-shrink: 0; text-align: end; font-weight: 800; font-size: 0.85rem; color: #1a1a2e;
     }
-    .row-actions { display: flex; align-items: center; justify-content: flex-end; gap: 4px; width: 148px; flex-shrink: 0; }
+    .row-actions { display: flex; align-items: center; justify-content: flex-end; gap: 4px; width: 180px; flex-shrink: 0; }
     .row-actions button {
       display: flex; align-items: center; justify-content: center;
       width: 28px; height: 28px; border-radius: 8px; border: none; cursor: pointer;
@@ -6578,8 +6578,11 @@ service cloud.firestore {
           <span class="row-price">${priceCell}</span>
           <span class="row-actions">
             ${(canEdit && !isPendingDelete) ? `
-            <button class="model-top-btn" data-id="${safeModelId}" title="Move to Top">
-              <svg style="width:15px;height:15px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 15l7-7 7 7M12 8v13"/></svg>
+            <button class="model-up-btn" data-id="${safeModelId}" title="Move Up">
+              <svg style="width:15px;height:15px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 15l7-7 7 7"/></svg>
+            </button>
+            <button class="model-down-btn" data-id="${safeModelId}" title="Move Down">
+              <svg style="width:15px;height:15px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 9l7 7 7-7"/></svg>
             </button>
             <button class="model-edit-btn" data-id="${safeModelId}" title="Edit Model">
               <svg style="width:15px;height:15px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
@@ -7325,11 +7328,18 @@ service cloud.firestore {
         });
       });
       // ── Action button handlers ──
-      document.querySelectorAll('.model-top-btn[data-id]').forEach(btn => {
+      document.querySelectorAll('.model-up-btn[data-id]').forEach(btn => {
         btn.addEventListener('click', function(e) {
           e.stopPropagation();
           const modelId = this.getAttribute('data-id');
-          if (modelId) window.moveModelToTop(modelId);
+          if (modelId) window.moveModelStep(modelId, -1);
+        });
+      });
+      document.querySelectorAll('.model-down-btn[data-id]').forEach(btn => {
+        btn.addEventListener('click', function(e) {
+          e.stopPropagation();
+          const modelId = this.getAttribute('data-id');
+          if (modelId) window.moveModelStep(modelId, 1);
         });
       });
       document.querySelectorAll('.model-edit-btn[data-id]').forEach(btn => {
@@ -7371,7 +7381,7 @@ service cloud.firestore {
         if (!card) return;
         card.addEventListener('click', function(e) {
           // if clicked on a button inside the overlay — do nothing extra
-          if (e.target.closest('.model-top-btn, .model-edit-btn, .model-move-btn, .model-delete-btn')) return;
+          if (e.target.closest('.model-up-btn, .model-down-btn, .model-edit-btn, .model-move-btn, .model-delete-btn')) return;
           // toggle this overlay
           const isVisible = ov.style.opacity === '1';
           _hideActiveOverlay();
@@ -7754,20 +7764,31 @@ service cloud.firestore {
       }
     };
 
-    // ── Move a model to the top of its folder's default (serial) order ──
-    // The default sort is ascending `serial`, so "move to top" just needs a serial lower than
-    // every other model currently in that folder — one below whatever the current minimum is.
-    window.moveModelToTop = async function(id) {
+    // ── Move a model one step up/down in its folder's default (serial) order ──
+    // The default sort is ascending `serial`. Swapping serial with the immediate neighbor in
+    // that order moves the model exactly one row, instead of jumping straight to the top.
+    window.moveModelStep = async function(id, dir) {
       const m = allModels.find(x => x.id === id);
       if (!m || !window._fbSave) return;
-      const siblings = allModels.filter(x => x.folderId === m.folderId && x.id !== id);
-      const minSerial = siblings.length ? Math.min(...siblings.map(x => Number(x.serial) || 0)) : 0;
-      const newSerial = minSerial - 1;
-      m.serial = newSerial; // reflect immediately, don't wait on the round-trip
-      applyFilters();
+      const soldOutLast = (a, b) => (!!a.soldOut) - (!!b.soldOut);
+      const siblings = allModels
+        .filter(x => x.folderId === m.folderId)
+        .sort((a, b) => soldOutLast(a, b) || (Number(a.serial) || 0) - (Number(b.serial) || 0));
+      const idx = siblings.findIndex(x => x.id === id);
+      const otherIdx = idx + dir;
+      if (idx < 0 || otherIdx < 0 || otherIdx >= siblings.length) return; // already first/last
+      const other = siblings[otherIdx];
+      const aSerial = Number(m.serial) || 0, bSerial = Number(other.serial) || 0;
+      // Equal serials (legacy data, or two models never reordered before) would make a swap a
+      // no-op — nudge them one integer apart first so the swap always actually moves something.
+      if (aSerial === bSerial) { m.serial = dir < 0 ? aSerial - 1 : aSerial + 1; }
+      else { m.serial = bSerial; other.serial = aSerial; }
+      applyFilters(); // reflect immediately, don't wait on the round-trip
       try {
-        await window._fbSave({ serial: newSerial }, id);
-        showToast(`⬆️ ${m.modelCode || ''}`, "success");
+        await Promise.all([
+          window._fbSave({ serial: m.serial }, m.id),
+          window._fbSave({ serial: other.serial }, other.id),
+        ]);
       } catch(err) {
         console.error(err);
         showToast("An error occurred while saving", "error");
