@@ -8673,10 +8673,12 @@ service cloud.firestore {
       }
       hideGalleryProgress(models.length, false);
       const zipBlob=await zip.generateAsync({type:"blob"});
-      // Folder name + a short mode suffix instead of "sonbola-all-info-82models" — that old name
-      // was long and didn't say anything the folder name + style doesn't already say shorter.
+      // Folder name + a short mode suffix only — no date/time stamp (unlike every other download
+      // path via buildDownloadFilename, which appends one to dodge the browser's "download again?"
+      // prompt on a name collision). Explicitly asked for: a repeat export of the same folder in
+      // the same style just overwrites the previous one instead of piling up timestamped copies.
       const suffix={"all":"Full","code":"Code","clean":"Clean","manual":"Original"}[mode]||mode;
-      const zipName=buildDownloadFilename(`${dlZipBaseName(models)}_${suffix}`, 'zip');
+      const zipName=`${dlZipBaseName(models)}_${suffix}.zip`;
       // Android app: hand the ZIP to the native bridge (WebView drops blob-anchor downloads).
       const zipSavedNatively = await window.saveBlobToDevice(zipBlob, zipName, false);
       if (!zipSavedNatively) {
