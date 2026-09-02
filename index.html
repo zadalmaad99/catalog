@@ -8663,6 +8663,32 @@ service cloud.firestore {
       document.getElementById('gp-cancel-btn').textContent = 'Cancelling...';
       document.getElementById('gp-cancel-btn').disabled = true;
     };
+    // ── Foreground-service hooks (Android app only) ──
+    // Tells the native side a download is running so it can hold the whole app process at
+    // foreground priority for the duration — otherwise Android freezes the WebView's JS (this
+    // download included) within seconds of the user switching to another app. See
+    // DownloadForegroundService.kt for the full explanation. Progress updates are throttled —
+    // one native call per image would mean one Android notification rebuild per image, which
+    // adds up needlessly with 80+ selected.
+    let _lastFgProgressAt = 0;
+    function _fgDownloadStart(total) {
+      if (window.AndroidDownloader && window.AndroidDownloader.startForegroundDownload) {
+        try { window.AndroidDownloader.startForegroundDownload(total); } catch(e) {}
+      }
+      _lastFgProgressAt = 0;
+    }
+    function _fgDownloadProgress(done, total) {
+      if (!(window.AndroidDownloader && window.AndroidDownloader.updateForegroundProgress)) return;
+      const now = Date.now();
+      if (done < total && now - _lastFgProgressAt < 700) return; // throttled, except the final call
+      _lastFgProgressAt = now;
+      try { window.AndroidDownloader.updateForegroundProgress(done, total); } catch(e) {}
+    }
+    function _fgDownloadStop() {
+      if (window.AndroidDownloader && window.AndroidDownloader.stopForegroundDownload) {
+        try { window.AndroidDownloader.stopForegroundDownload(); } catch(e) {}
+      }
+    }
     function showGalleryProgress(total) {
       document.getElementById('gp-subtitle').textContent = 'Preparing...';
       document.getElementById('gp-bar-fill').style.width = '0%';
@@ -8673,6 +8699,12 @@ service cloud.firestore {
       cb.textContent = '✕ Cancel'; cb.disabled = false; cb.style.display = 'block';
       document.getElementById('gallery-progress-backdrop').classList.add('show');
       document.getElementById('gallery-progress-card').classList.add('show');
+      // In the Android app the foreground-service hooks above keep the download running even if
+      // the user switches away, so the "stay in the app" warning only applies to the web/PWA
+      // build, which has no equivalent — a backgrounded browser tab still gets throttled/frozen.
+      const stayHint = document.getElementById('gp-stay-hint');
+      if (stayHint) stayHint.style.display = window.AndroidDownloader ? 'none' : '';
+      _fgDownloadStart(total);
     }
     function updateGalleryProgress(done, total, modelCode) {
       const pct = Math.round((done / total) * 100);
@@ -8680,8 +8712,10 @@ service cloud.firestore {
       document.getElementById('gp-count-text').textContent = done + ' / ' + total;
       document.getElementById('gp-pct-text').textContent = pct + '%';
       if (modelCode) document.getElementById('gp-subtitle').textContent = modelCode;
+      _fgDownloadProgress(done, total);
     }
     function hideGalleryProgress(done, cancelled) {
+      _fgDownloadStop();
       document.getElementById('gp-cancel-btn').style.display = 'none';
       if (cancelled) {
         document.getElementById('gp-subtitle').textContent = 'Cancelled';
