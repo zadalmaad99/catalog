@@ -8505,7 +8505,13 @@ service cloud.firestore {
             const canvas=document.createElement("canvas");const ctx=canvas.getContext("2d");const img=new Image();
             if(!imgUrl.startsWith('data:')) img.crossOrigin="anonymous";
             await new Promise(res=>{img.onload=async()=>{
-              canvas.width=img.naturalWidth;canvas.height=img.naturalHeight;ctx.drawImage(img,0,0);
+              canvas.width=img.naturalWidth;canvas.height=img.naturalHeight;
+              // JPEG has no alpha channel — any transparent pixels in the source photo (common
+              // near rounded corners / cut-out edges) would otherwise flatten to solid BLACK the
+              // moment this canvas gets encoded as JPEG below. Filling white first means they
+              // flatten to white instead, matching what the source image actually looks like.
+              ctx.fillStyle="#fff";ctx.fillRect(0,0,canvas.width,canvas.height);
+              ctx.drawImage(img,0,0);
               const w=canvas.width,h=canvas.height;
               // Gradients — same as card overlay
               const gb=ctx.createLinearGradient(0,h*0.55,0,h);gb.addColorStop(0,"rgba(0,0,0,0)");gb.addColorStop(1,"rgba(0,0,0,0.78)");ctx.fillStyle=gb;ctx.fillRect(0,0,w,h);
@@ -8752,6 +8758,9 @@ service cloud.firestore {
       const ctx = canvas.getContext('2d');
       canvas.width  = bmp.width;
       canvas.height = bmp.height;
+      // Same reasoning as the ZIP export path above: fill white first so any transparent source
+      // pixels flatten to white — not black — once this canvas gets encoded as JPEG.
+      ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, canvas.width, canvas.height);
       ctx.drawImage(bmp, 0, 0);
       const w = canvas.width, h = canvas.height;
 
