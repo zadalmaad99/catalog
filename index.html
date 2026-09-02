@@ -2209,6 +2209,7 @@ service cloud.firestore {
 
     function isCoAdmin() {
       return request.auth != null &&
+        exists(/databases/$(database)/documents/managed_users/$(request.auth.uid)) &&
         myManagedUser().data.role == "co_admin" &&
         myManagedUser().data.disabled != true;
     }
@@ -2219,14 +2220,29 @@ service cloud.firestore {
         myManagedUser().data.disabled != true;
     }
 
+    // Folder-scoping: a managed user (co_admin or regular) with a non-null allowedFolders
+    // array can only read the folders/models listed in it; null = unrestricted (all folders).
+    function myAllowedFolders() {
+      return myManagedUser().data.allowedFolders;
+    }
+    function canReadFolder(folderId) {
+      return isSuperAdmin() || isCoAdmin() ||
+        (isActiveManagedUser() &&
+          (myAllowedFolders() == null || folderId in myAllowedFolders()));
+    }
+
     // Admin + co_admin can create/edit; ONLY Admin can delete (incl. move-to-trash).
-    match /models/{document=**} {
-      allow read: if isActiveManagedUser() || isSuperAdmin();
+    // "get" (single-doc read) is public — needed for anonymous share links; "list"
+    // (browsing the full collection) is gated by canReadFolder.
+    match /models/{modelId} {
+      allow get: if true;
+      allow read: if canReadFolder(resource.data.folderId);
       allow create, update: if isSuperAdmin() || isCoAdmin();
       allow delete: if isSuperAdmin();
     }
-    match /folders/{document=**} {
-      allow read: if isActiveManagedUser() || isSuperAdmin();
+    match /folders/{folderId} {
+      allow get: if true;
+      allow read: if canReadFolder(folderId);
       allow create: if isSuperAdmin() || isCoAdmin();
       // co_admin may edit folder content, but cannot move it to (or out of) Trash —
       // that requires the "deleted" field to change, which is Admin-only.
@@ -2235,21 +2251,36 @@ service cloud.firestore {
       allow delete: if isSuperAdmin();
     }
 
-    // Only the Admin manages accounts (create / role / disable / delete).
-    // Every signed-in account may read this collection (needed for the app's
-    // own role lookup), but only the Admin can write to it.
+    // Only the Admin manages accounts (create / role / disable / delete). A signed-in
+    // account may read its own doc (needed for the app's own role lookup); admin/co_admin
+    // may read any account; only the Admin can write.
     match /managed_users/{uid} {
-      allow read: if request.auth != null;
+      allow read: if request.auth != null &&
+        (request.auth.uid == uid || isSuperAdmin() || isCoAdmin());
       allow write: if isSuperAdmin();
     }
 
-    match /login_logs/{document=**} {
-      allow read, write: if request.auth != null;
+    match /login_logs/{logId} {
+      allow read: if isSuperAdmin() || isCoAdmin();
+      allow create: if request.auth != null;
+      allow update, delete: if isSuperAdmin();
     }
 
     match /app_settings/{document=**} {
       allow read: if true;
       allow write: if isSuperAdmin() || isCoAdmin();
+    }
+
+    match /shared_links/{code} {
+      allow get: if true;
+      allow create: if isSuperAdmin() || isCoAdmin();
+    }
+
+    match /analytics_events/{eventId} {
+      allow create: if true;
+      allow read: if isSuperAdmin();
+      allow update: if false;
+      allow delete: if isSuperAdmin();
     }
   }
 }</pre>
