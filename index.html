@@ -8513,15 +8513,9 @@ service cloud.firestore {
               ctx.fillStyle="#fff";ctx.fillRect(0,0,canvas.width,canvas.height);
               ctx.drawImage(img,0,0);
               const w=canvas.width,h=canvas.height;
-              // Gradients — same as card overlay. Bottom one backs the code/price text that's
-              // always drawn, so it always runs; the top one only exists to keep the age badges
-              // readable, so it's skipped in "code" mode (no badges up there at all) and made
-              // lighter/shorter than before — at full strength it read as a dark "fog" band
-              // across the top of every photo, badges or not.
-              const gb=ctx.createLinearGradient(0,h*0.55,0,h);gb.addColorStop(0,"rgba(0,0,0,0)");gb.addColorStop(1,"rgba(0,0,0,0.78)");ctx.fillStyle=gb;ctx.fillRect(0,0,w,h);
-              if(mode==="all"&&m.ageGroup){
-                const gt=ctx.createLinearGradient(0,0,0,h*0.22);gt.addColorStop(0,"rgba(0,0,0,0.30)");gt.addColorStop(1,"rgba(0,0,0,0)");ctx.fillStyle=gt;ctx.fillRect(0,0,w,h);
-              }
+              // No darkening wash on the photo at all — the badges already carry their own solid
+              // color background, and the code text below keeps its drop shadow, so nothing here
+              // needs a gradient behind it to stay legible.
               const pad=w*0.04;
               function btc(bg){const hx=bg.replace('#','');const r=parseInt(hx.substr(0,2),16),g=parseInt(hx.substr(2,2),16),b=parseInt(hx.substr(4,2),16);return(r*0.299+g*0.587+b*0.114)>160?'#1a1a1a':'#ffffff';}
               if(mode==="all"){
@@ -8770,18 +8764,9 @@ service cloud.firestore {
       ctx.drawImage(bmp, 0, 0);
       const w = canvas.width, h = canvas.height;
 
-      // Bottom gradient — backs the code/price text that's always drawn, so it always runs.
-      const gb = ctx.createLinearGradient(0, h * 0.55, 0, h);
-      gb.addColorStop(0, 'rgba(0,0,0,0)'); gb.addColorStop(1, 'rgba(0,0,0,0.78)');
-      ctx.fillStyle = gb; ctx.fillRect(0, 0, w, h);
-      // Top gradient — only exists to back the age badges, so skip it when there are none, and
-      // keep it lighter/shorter than before: at full strength it read as a dark "fog" band
-      // across the top of every photo, badges or not.
-      if (mode === 'all' && m.ageGroup) {
-        const gt = ctx.createLinearGradient(0, 0, 0, h * 0.22);
-        gt.addColorStop(0, 'rgba(0,0,0,0.30)'); gt.addColorStop(1, 'rgba(0,0,0,0)');
-        ctx.fillStyle = gt; ctx.fillRect(0, 0, w, h);
-      }
+      // No darkening wash on the photo at all — the badges already carry their own solid color
+      // background, and the code text below keeps its drop shadow, so nothing here needs a
+      // gradient behind it to stay legible.
 
       const pad = w * 0.04;
       function btc(bg) { const hx = bg.replace('#',''); const r=parseInt(hx.substr(0,2),16),g=parseInt(hx.substr(2,2),16),b2=parseInt(hx.substr(4,2),16); return (r*0.299+g*0.587+b2*0.114)>160?'#1a1a1a':'#ffffff'; }
