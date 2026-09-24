@@ -2573,6 +2573,9 @@ service cloud.firestore {
       <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13.828 10.172a4 4 0 010 5.656l-3 3a4 4 0 01-5.656-5.656l1.5-1.5M10.172 13.828a4 4 0 010-5.656l3-3a4 4 0 015.656 5.656l-1.5 1.5"/></svg>
       <span data-i18n="getLink">Get Link</span>
     </button>
+    <button type="button" id="bulk-price-btn" onclick="window.bulkAdjustPrice()" style="display:none;align-items:center;gap:6px;padding:8px 14px;border-radius:10px;background:#7c3aed;color:#fff;font-size:0.78rem;font-weight:700;white-space:nowrap;">
+      <span>±</span><span data-i18n="bulkPrice">Price</span>
+    </button>
     <button type="button" onclick="window.clearCardSelection()" title="Clear selection"
       style="display:flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:9px;background:rgba(255,255,255,0.1);color:#fff;">
       <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
@@ -3906,6 +3909,7 @@ service cloud.firestore {
         excludeFromDiscount: 'استثناء من الخصم',
         excludeFromDiscountDesc: 'ما ينطبق عليه أي خصم (فولدر أو عام)',
         modelDiscountPrice: 'مبلغ التخفيض لهذا الموديل',
+        bulkPrice: 'السعر',
         modelDiscountPriceHint: 'المبلغ المخصوم من السعر (مثلاً السعر 15000 والتخفيض 5000 = 10000). اتركه فارغاً لاستخدام خصم الفولدر/العام.',
         stayInAppDuringDownload: '⚠️ ابقَ داخل التطبيق حتى ينتهي التنزيل',
         excludedBadge: 'غير مشمولة',
@@ -4057,6 +4061,7 @@ service cloud.firestore {
         excludeFromDiscount: 'دەرکردن لە داشکاندن',
         excludeFromDiscountDesc: 'هیچ داشکاندنێک ناخرێتە سەری (فۆڵدەر یان گشتی)',
         modelDiscountPrice: 'بڕی داشکاندن بۆ ئەم مۆدێلە',
+        bulkPrice: 'نرخ',
         modelDiscountPriceHint: 'ئەو بڕەی لە نرخ کەم دەکرێتەوە (نموونە نرخ 15000 و داشکاندن 5000 = 10000). بەتاڵی بهێڵەوە بۆ بەکارهێنانی داشکاندنی فۆڵدەر/گشتی.',
         stayInAppDuringDownload: '⚠️ لە ئەپەکە بمێنەرەوە تا داگرتنەکە تەواو بێت',
         excludedBadge: 'بێ داشکاندن',
@@ -4208,6 +4213,7 @@ service cloud.firestore {
         excludeFromDiscount: 'Exclude from discount',
         excludeFromDiscountDesc: 'No discount applies to this (folder-wide or global)',
         modelDiscountPrice: 'Discount amount for this model',
+        bulkPrice: 'Price',
         modelDiscountPriceHint: 'Amount taken off the price (e.g. price 15000, discount 5000 = 10000). Leave empty to use the folder/global discount.',
         stayInAppDuringDownload: '⚠️ Stay in the app until this finishes',
         excludedBadge: 'Excluded',
@@ -8317,12 +8323,36 @@ service cloud.firestore {
       if (selectedIds.size > 0) {
         bar.classList.remove('hidden');
         if (countEl) countEl.textContent = `${selectedIds.size} selected`;
+        const bpb = document.getElementById('bulk-price-btn');
+        if (bpb) bpb.style.display = (currentUser && !viewOnlyMode && window._canEditCatalogUI && window._canEditCatalogUI()) ? 'flex' : 'none';
       } else {
         bar.classList.add('hidden');
         if (statusEl) statusEl.textContent = '';
       }
     }
     window.updateSelectionBar = updateSelectionBar;
+
+    // ── Bulk price change for the selected models ──
+    // Adds (or, with a negative number, subtracts) one amount to the price of every selected
+    // model. Asks for the amount, then confirms the exact count before writing anything.
+    window.bulkAdjustPrice = async function() {
+      const ids = [...selectedIds];
+      if (!ids.length || !window._fbBulkAdjustPrice) return;
+      const raw = window.prompt(`Add to the price of ${ids.length} selected model(s).
+Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
+      if (raw === null) return;
+      const delta = parseFloat(String(raw).replace(/,/g, ''));
+      if (!isFinite(delta) || delta === 0) { showToast('Enter a valid amount', 'error'); return; }
+      if (!window.confirm(`Change the price of ${ids.length} model(s) by ${delta > 0 ? '+' : ''}${delta}?`)) return;
+      try {
+        const n = await window._fbBulkAdjustPrice(ids, delta);
+        showToast(`✓ ${n} prices updated`, 'success');
+        applyFilters();
+      } catch (e) {
+        console.error(e);
+        showToast('An error occurred while saving', 'error');
+      }
+    };
 
     // "Copy" on a desktop browser (no Android bridge, and Web Share's file-sharing is mobile-only
     // in practice): the one browser feature that genuinely puts an image on the OS clipboard —
@@ -11511,6 +11541,22 @@ service cloud.firestore {
     }, 5 * 60 * 1000); // every 5 minutes
 
     // ── Save model ──
+    // Adds `delta` to the price of each listed model (never below 0) with one write per model
+    // and no per-model toast/modal side effects like _fbSave has. Returns how many were updated.
+    window._fbBulkAdjustPrice = async function(ids, delta) {
+      let n = 0;
+      await Promise.all(ids.map(async (id) => {
+        const idx = S.allModels.findIndex(m => m.id === id);
+        if (idx === -1) return;
+        const oldPrice = parseFloat(S.allModels[idx].price) || 0;
+        const newPrice = Math.max(0, oldPrice + delta);
+        await updateDoc(doc(db, "models", id), { price: newPrice, updatedAt: serverTimestamp() });
+        S.allModels[idx] = { ...S.allModels[idx], price: newPrice, updatedAt: Date.now() };
+        n++;
+      }));
+      return n;
+    };
+
     window._fbSave = async function(data, eid) {
       // Save folderId before any call that might change state
       const savedFolderId = data.folderId;
