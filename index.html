@@ -2992,6 +2992,20 @@ service cloud.firestore {
         <!-- Font Size Options: removed — font sizes are now controlled only at folder/global level
              (per-model overrides used to always save 100%, which blocked folder settings from taking effect) -->
 
+        <!-- Per-model discount price — overrides the folder-wide/global discount for just this model.
+             Collapsed by default, same pattern as the sections around it. -->
+        <div>
+          <button type="button" onclick="toggleStatsSection('model-discount-panel')" class="w-full flex items-center justify-between mb-2">
+            <span class="text-xs font-bold text-gray-600 flex items-center gap-1">🏷️ <span data-i18n="modelDiscountPrice">Discount price for this model</span></span>
+            <svg class="w-3.5 h-3.5 text-gray-400 stats-section-chevron" id="model-discount-panel-chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"/></svg>
+          </button>
+          <div id="model-discount-panel" class="hidden bg-orange-50 border border-orange-100 rounded-xl px-4 py-3">
+            <input type="number" id="f-discount-price" min="0" inputmode="numeric" placeholder="0"
+              class="w-full h-10 px-3 rounded-xl border border-gray-200 bg-white text-sm font-bold focus:outline-none focus:border-[#e85d3a]" />
+            <p class="text-xs text-gray-400 mt-1.5" data-i18n="modelDiscountPriceHint">Price after discount. Leave empty to use the folder/global discount.</p>
+          </div>
+        </div>
+
         <!-- Exclude from Discount — collapsed by default (same pattern as Label Colors above) -->
         <div>
           <button type="button" onclick="toggleStatsSection('exclude-discount-panel')" class="w-full flex items-center justify-between mb-2">
@@ -3891,6 +3905,8 @@ service cloud.firestore {
         noneOption: '— بدون —',
         excludeFromDiscount: 'استثناء من الخصم',
         excludeFromDiscountDesc: 'ما ينطبق عليه أي خصم (فولدر أو عام)',
+        modelDiscountPrice: 'سعر التخفيض لهذا الموديل',
+        modelDiscountPriceHint: 'السعر بعد التخفيض. اتركه فارغاً لاستخدام خصم الفولدر/العام.',
         stayInAppDuringDownload: '⚠️ ابقَ داخل التطبيق حتى ينتهي التنزيل',
         excludedBadge: 'غير مشمولة',
         cancel: 'إلغاء',
@@ -4040,6 +4056,8 @@ service cloud.firestore {
         noneOption: '— هیچ —',
         excludeFromDiscount: 'دەرکردن لە داشکاندن',
         excludeFromDiscountDesc: 'هیچ داشکاندنێک ناخرێتە سەری (فۆڵدەر یان گشتی)',
+        modelDiscountPrice: 'نرخی داشکاندن بۆ ئەم مۆدێلە',
+        modelDiscountPriceHint: 'نرخی دوای داشکاندن. بەتاڵی بهێڵەوە بۆ بەکارهێنانی داشکاندنی فۆڵدەر/گشتی.',
         stayInAppDuringDownload: '⚠️ لە ئەپەکە بمێنەرەوە تا داگرتنەکە تەواو بێت',
         excludedBadge: 'بێ داشکاندن',
         cancel: 'پاشگەزبوونەوە',
@@ -4189,6 +4207,8 @@ service cloud.firestore {
         noneOption: '— None —',
         excludeFromDiscount: 'Exclude from discount',
         excludeFromDiscountDesc: 'No discount applies to this (folder-wide or global)',
+        modelDiscountPrice: 'Discount price for this model',
+        modelDiscountPriceHint: 'Price after discount. Leave empty to use the folder/global discount.',
         stayInAppDuringDownload: '⚠️ Stay in the app until this finishes',
         excludedBadge: 'Excluded',
         cancel: 'Cancel',
@@ -5491,12 +5511,16 @@ service cloud.firestore {
         const p = parseFloat(model.price) || 0;
         return { orig: p, final: p, hasDiscount: false, pct: 0 };
       }
-      if (folder && folder.discount && folder.discount.value > 0) {
+      const origPrice = parseFloat(model.price) || 0;
+      const ownSale = parseFloat(model.discountPrice);
+      if (ownSale > 0 && ownSale < origPrice) {
+        // Per-model sale price wins over folder/global discount.
+        discount = { type: 'fixed', value: origPrice - ownSale };
+      } else if (folder && folder.discount && folder.discount.value > 0) {
         discount = folder.discount;
       } else if (globalDiscount && globalDiscount.value > 0) {
         discount = globalDiscount;
       }
-      const origPrice = parseFloat(model.price) || 0;
       if (!discount) return { orig: origPrice, final: origPrice, hasDiscount: false, pct: 0 };
       let finalPrice, pct;
       if (discount.type === 'percent') {
@@ -6446,14 +6470,18 @@ service cloud.firestore {
       // Folder-specific discount overrides global discount
       // Skip entirely if model is excluded from discounts
       let discount = null;
+      const origPrice = parseFloat(m.price) || 0;
       if (!m.excludeFromDiscount) {
-        if (folder && folder.discount && folder.discount.value > 0) {
+        const ownSale = parseFloat(m.discountPrice);
+        if (ownSale > 0 && ownSale < origPrice) {
+          // Per-model sale price wins over folder/global discount.
+          discount = { type: 'fixed', value: origPrice - ownSale };
+        } else if (folder && folder.discount && folder.discount.value > 0) {
           discount = folder.discount;
         } else if (globalDiscount && globalDiscount.value > 0) {
           discount = globalDiscount;
         }
       }
-      const origPrice = parseFloat(m.price) || 0;
       let discountedPrice = origPrice;
       let discountPct = 0;
       if (discount) {
@@ -7753,6 +7781,8 @@ service cloud.firestore {
       setColor("age-color",   model.ageColor   || "#00bcd4");
       setColor("code-color",  model.codeColor  || "#ffffff");
       setColor("price-color", model.priceColor || "#ffd600");
+      const dpInput = document.getElementById("f-discount-price");
+      if (dpInput) dpInput.value = model.discountPrice > 0 ? model.discountPrice : '';
       const exDisc = document.getElementById("f-exclude-discount");
       if (exDisc) exDisc.checked = !!model.excludeFromDiscount;
       const track = document.getElementById("exclude-discount-track");
@@ -7779,6 +7809,8 @@ service cloud.firestore {
       document.getElementById("img-preview").src = '';
       document.getElementById("upload-progress").classList.add("hidden");
       setColor("age-color","#00bcd4"); setColor("code-color","#ffffff"); setColor("price-color","#ffd600");
+      const dpInput = document.getElementById("f-discount-price");
+      if (dpInput) dpInput.value = '';
       const exDisc = document.getElementById("f-exclude-discount");
       if (exDisc) exDisc.checked = false;
       const track = document.getElementById("exclude-discount-track");
@@ -8017,6 +8049,7 @@ service cloud.firestore {
           codeColor:  getColor("code-color")  || "#ffffff",
           priceColor: getColor("price-color") || "#ffd600",
           excludeFromDiscount: document.getElementById("f-exclude-discount")?.checked || false,
+          discountPrice: (parseFloat(document.getElementById("f-discount-price")?.value) > 0) ? parseFloat(document.getElementById("f-discount-price").value) : null,
           folderId:   (document.getElementById("f-folder-id")?.value || currentFolderId) || null,
           updatedAt: Date.now(),
         };
