@@ -10494,10 +10494,15 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
           }
           if (has('pic') && it.imageUrl) {
             try {
-              const resp = await fetch(optimizedCloudinaryUrl(it.imageUrl, '200x200'));
+              // optimizedCloudinaryUrl uses f_auto (Cloudinary picks WEBP/AVIF/etc. based on
+              // content negotiation) — fine for an <img>/Image element, but here the bytes get
+              // written straight into the xlsx tagged as "jpeg", and real Excel on Windows
+              // refuses to render a file whose actual format doesn't match that tag ("The
+              // picture can't be displayed"). downloadCloudinaryUrl's explicit f_jpg guarantees
+              // the bytes really are a JPEG, matching the extension declared below.
+              const resp = await fetch(downloadCloudinaryUrl(it.imageUrl, '200x200', 'jpg'));
               const buf = await resp.arrayBuffer();
-              const ext = /\.png($|\?)/i.test(it.imageUrl) ? 'png' : 'jpeg';
-              const imgId = wb.addImage({ buffer: buf, extension: ext });
+              const imgId = wb.addImage({ buffer: buf, extension: 'jpeg' });
               ws.addImage(imgId, { tl: { col: 0.1, row: rIdx - 1 + 0.08 }, ext: { width: 84, height: 84 } });
             } catch (e) { console.error('excel image embed failed', e); }
           }
