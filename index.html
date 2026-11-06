@@ -10107,6 +10107,28 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
       } catch (e) { console.error(e); showToast('Export failed: ' + (e && e.message || e), 'error'); }
     };
 
+    // Renders one of the app's own platform icons (stored as inline SVG data-URIs, which
+    // ExcelJS can't embed directly) to a small PNG buffer so it can go inside a cell.
+    function _platformIconPngBuffer(platformName) {
+      const needle = (platformName || '').trim().toLowerCase();
+      if (!needle) return Promise.resolve(null);
+      let k = CATALOG_PLATFORM_ICONS[needle] ? needle : null;
+      if (!k) k = Object.keys(PLATFORM_LABELS).find(x => PLATFORM_LABELS[x].toLowerCase() === needle) || null;
+      const src = k ? CATALOG_PLATFORM_ICONS[k] : null;
+      if (!src) return Promise.resolve(null);
+      return new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          canvas.width = 48; canvas.height = 48;
+          canvas.getContext('2d').drawImage(img, 0, 0, 48, 48);
+          canvas.toBlob(blob => { if (!blob) { resolve(null); return; } blob.arrayBuffer().then(resolve); }, 'image/png');
+        };
+        img.onerror = () => resolve(null);
+        img.src = src;
+      });
+    }
+
     window.exportOrderExcel = async function() {
       if (!currentOrder) return;
       showToast('Generating Excel…', 'info');
@@ -10117,14 +10139,14 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
         ws.columns = [
           { header: 'Picture', key: 'pic', width: 14 },
           { header: 'Code', key: 'code', width: 12 },
-          { header: 'Store', key: 'store', width: 16 },
-          { header: 'Link', key: 'link', width: 24 },
+          { header: 'Store / Link', key: 'store', width: 26 },
           { header: 'Unit Price ¥', key: 'cny', width: 12 },
           { header: 'Unit Price $', key: 'usd', width: 12 },
           { header: 'Sizes', key: 'sizes', width: 18 },
           { header: 'Quantity', key: 'qty', width: 10 },
           { header: 'Real Cost (IQD)', key: 'iqd', width: 16 },
         ];
+        const storeColIdx = 2; // 0-based: pic, code, store
         const thinBorder = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
         ws.views = [{ state: 'frozen', ySplit: 1 }];
         const headerRow = ws.getRow(1);
@@ -10139,16 +10161,23 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
         const { rows, totalQty, totalRealIqd } = _orderExportRows(currentOrder);
         let rIdx = 2;
         for (const { it, unitCny, unitUsd, qty, realCostIqd } of rows) {
-          const row = ws.addRow({ pic: '', code: it.code || '', store: it.storePlatform || '', link: it.storeLink || '', cny: unitCny, usd: Math.round(unitUsd * 100) / 100, sizes: (it.sizes || []).join(', '), qty, iqd: Math.round(realCostIqd) });
-          row.height = 56;
+          const row = ws.addRow({ pic: '', code: it.code || '', store: '', cny: unitCny, usd: Math.round(unitUsd * 100) / 100, sizes: (it.sizes || []).join(', '), qty, iqd: Math.round(realCostIqd) });
+          row.height = 74;
           row.eachCell(c => { c.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true }; c.border = thinBorder; });
           row.getCell('cny').numFmt = '"¥"#,##0.00';
           row.getCell('usd').numFmt = '"$"#,##0.00';
           row.getCell('iqd').numFmt = '#,##0 "IQD"';
+          // Store/Link cell: platform icon pinned near the top, platform name + link text
+          // anchored to the bottom of the same (tall) cell — i.e. the link sits under the
+          // platform picture, inside one cell, instead of a separate column.
+          const storeCell = row.getCell('store');
+          storeCell.alignment = { horizontal: 'center', vertical: 'bottom', wrapText: true };
           if (it.storeLink) {
-            const linkCell = row.getCell('link');
-            linkCell.value = { text: it.storeLink, hyperlink: it.storeLink };
-            linkCell.font = { color: { argb: 'FF2563EB' }, underline: true };
+            storeCell.value = { text: `${it.storePlatform || ''}\n${it.storeLink}`, hyperlink: it.storeLink };
+            storeCell.font = { color: { argb: 'FF2563EB' }, underline: true, size: 9 };
+          } else if (it.storePlatform) {
+            storeCell.value = it.storePlatform;
+            storeCell.font = { size: 10, bold: true };
           }
           if (it.imageUrl) {
             try {
@@ -10159,13 +10188,18 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
               ws.addImage(imgId, { tl: { col: 0.08, row: rIdx - 1 + 0.08 }, ext: { width: 72, height: 72 } });
             } catch (e) { console.error('excel image embed failed', e); }
           }
+          const iconBuf = await _platformIconPngBuffer(it.storePlatform);
+          if (iconBuf) {
+            const iconId = wb.addImage({ buffer: iconBuf, extension: 'png' });
+            ws.addImage(iconId, { tl: { col: storeColIdx + 0.9, row: rIdx - 1 + 0.08 }, ext: { width: 24, height: 24 } });
+          }
           rIdx++;
         }
         const totalRow = ws.addRow({ code: 'TOTAL', qty: totalQty, iqd: Math.round(totalRealIqd) });
         totalRow.height = 22;
         totalRow.font = { bold: true };
         totalRow.getCell('iqd').numFmt = '#,##0 "IQD"';
-        ws.mergeCells(`B${totalRow.number}:F${totalRow.number}`);
+        ws.mergeCells(`C${totalRow.number}:F${totalRow.number}`);
         totalRow.getCell('code').alignment = { horizontal: 'center', vertical: 'middle' };
         totalRow.eachCell({ includeEmpty: true }, c => { c.border = thinBorder; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF3F4F6' } }; });
 
