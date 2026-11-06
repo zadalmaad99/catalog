@@ -10030,9 +10030,9 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
                 ${img}
                 <input type="file" accept="image/*" class="hidden" onchange="window.uploadOrderItemImage(${idx}, this)" />
               </label>
-              <div class="od-strip-field" style="min-width:110px;">
+              <div class="od-strip-field" style="width:68px;">
                 <span class="od-item-field-label" style="text-align:left;">${escapeHtml(window.t?window.t('colCode'):'Code')}</span>
-                <input class="od-input od-input-strong" value="${escapeHtml(it.code||'')}" placeholder="${escapeHtml(window.t?window.t('colCode'):'Code (e.g. S304)')}" onchange="window.updateOrderItem(${idx},'code',this.value)" />
+                <input class="od-input od-input-strong" value="${escapeHtml(it.code||'')}" placeholder="${escapeHtml(window.t?window.t('colCode'):'Code')}" onchange="window.updateOrderItem(${idx},'code',this.value)" />
               </div>
               <div class="od-strip-field" style="min-width:150px;">
                 <span class="od-item-field-label" style="text-align:left;">${escapeHtml(window.t?window.t('colStore'):'Store')}</span>
