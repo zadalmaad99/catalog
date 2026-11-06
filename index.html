@@ -10010,10 +10010,30 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
       } catch(e) { console.error(e); showToast('An error occurred while saving', 'error'); }
     };
 
-    window.saveOrderShippingPrice = function(value) {
+    window.saveOrderShippingPrice = async function(value) {
       const v = parseFloat(value) || 0;
       if (v > 0 && !(currentOrder && currentOrder.shippingMode)) {
         showToast('Pick a shipping mode first', 'error');
+      }
+      if (v > 0 && currentOrder) {
+        const items = currentOrder.items || [];
+        const totalQty = items.reduce((s, it) => s + (parseInt(it.quantity) || 0), 0);
+        const perPiece = totalQty > 0 ? v / totalQty : v;
+        const cnyRate = parseFloat(currentOrder.cnyRate) || 0;
+        const unitUsds = items.map(it => cnyRate > 0 ? (parseFloat(it.unitPriceCny) || 0) / cnyRate : 0).filter(n => n > 0);
+        const avgUnitUsd = unitUsds.length ? unitUsds.reduce((a, b) => a + b, 0) / unitUsds.length : 0;
+        // Sanity check, not a hard cap: this exact mistake (typing the IQD-scale number into a
+        // $ field meant for the WHOLE order's shipping, not realizing it gets divided per piece)
+        // has happened before and silently produced a wildly wrong real cost — so when the
+        // resulting per-piece shipping share would dwarf what the items themselves cost, ask
+        // before saving instead of only showing a toast that's easy to not notice.
+        if (perPiece > Math.max(avgUnitUsd * 5, 20)) {
+          const ok = await window.odConfirm(
+            `That's $${orderMoney(v)} total ÷ ${totalQty} pieces = $${orderMoney(perPiece)} in shipping PER PIECE — much more than the items' own ~$${orderMoney(avgUnitUsd)} each. Make sure $${orderMoney(v)} is the TOTAL for the whole shipment (in US dollars, not IQD) and not a per-piece amount. Save anyway?`,
+            { danger: true }
+          );
+          if (!ok) return;
+        }
       }
       window.saveOrderField('shippingTotalUsd', v);
       if (v > 0 && currentOrder) {
