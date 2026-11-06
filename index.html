@@ -9885,15 +9885,21 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
       // Same code as the row it's templated from too — these are color variants of ONE model,
       // same product code, same way the main Catalog already lets several cards share a code
       // (one per color) instead of faking a "S304.1"/"S304.2" suffix.
+      // Quantity is inherited too, not reset to 0 — otherwise every new variant adds ¥0/$0/IQD 0
+      // to the totals until the admin manually re-types a quantity on each one, which reads as
+      // "the total didn't change" / "it's only counting one color" even though the math is
+      // correct. Starting from the same quantity as the row it's templated from means the
+      // totals immediately reflect every variant; the admin only needs to adjust counts that
+      // actually differ per color.
       const last = currentOrder.items[currentOrder.items.length - 1];
       const template = last
-        ? { code: last.code||'', storePlatform: last.storePlatform||'', storeLink: last.storeLink||'', unitPriceCny: last.unitPriceCny||0, sizes: [...(last.sizes||[])] }
-        : { code:'', storePlatform:'', storeLink:'', unitPriceCny:0, sizes:[] };
+        ? { code: last.code||'', storePlatform: last.storePlatform||'', storeLink: last.storeLink||'', unitPriceCny: last.unitPriceCny||0, sizes: [...(last.sizes||[])], quantity: last.quantity||0 }
+        : { code:'', storePlatform:'', storeLink:'', unitPriceCny:0, sizes:[], quantity:0 };
       showToast(`⏳ Uploading ${files.length} photo${files.length>1?'s':''}…`, 'success');
       for (const file of files) {
         try {
           const url = await uploadToCloudinary(file);
-          currentOrder.items.push({ ...template, quantity: 0, imageUrl: url });
+          currentOrder.items.push({ ...template, imageUrl: url });
           renderOrderRows(); // update after each upload — visible progress on a slow connection
         } catch(e) { console.error(e); showToast('Image upload failed', 'error'); }
       }
