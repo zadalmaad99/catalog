@@ -82,8 +82,14 @@
       content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
       background: var(--order-color, #e85d3a);
     }
-    .order-card .folder-preview-collage, .order-card .folder-icon-wrap { margin-bottom: 0.75rem; }
+    .order-card-media { position: relative; margin-bottom: 0.75rem; }
+    .order-card-media .folder-preview-collage, .order-card-media .folder-icon-wrap { margin-bottom: 0; }
+    .order-card:hover .order-card-media .collage-cell img { transform: scale(1.05); }
+    .order-card:hover .order-card-media .folder-icon-wrap { transform: scale(1.08); }
     .order-status-pill { font-size: 0.62rem; font-weight: 800; padding: 3px 9px; border-radius: 999px; white-space: nowrap; flex-shrink: 0; }
+    .order-status-float { position: absolute; top: 8px; right: 8px; backdrop-filter: blur(6px); box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
+    .order-card-meta { display: flex; flex-direction: column; gap: 2px; margin-top: 3px; }
+    .order-card-meta span { font-size: 0.72rem; color: #9ca3af; font-weight: 600; }
     .order-card-footer {
       margin-top: 10px; padding-top: 10px; border-top: 1px dashed #f1e4da;
       display: flex; align-items: center; justify-content: space-between;
@@ -1261,8 +1267,8 @@
     @media (max-width: 640px) {
       .folder-card { border-radius: 16px; padding: 1rem; }
     }
-    .folder-preview-collage[data-count="1"] { grid-template-columns: 1fr; }
-    .folder-preview-collage[data-count="2"] { grid-template-columns: 1fr 1fr; }
+    .folder-preview-collage[data-count="1"] { grid-template-columns: 1fr; grid-template-rows: 1fr; }
+    .folder-preview-collage[data-count="2"] { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr; }
     .folder-preview-collage[data-count="3"] {
       grid-template-columns: 2fr 1fr;
       grid-template-rows: 1fr 1fr;
@@ -9576,15 +9582,18 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
       const received = !!o.receiveDate;
       const t = computeOrderTotals(o);
       const statusColor = received ? '#16a34a' : '#f59e0b';
+      const statusLabel = received ? (window.t?window.t('ordReceived'):'Received') : (window.t?window.t('ordPending'):'Pending');
       return `
         <div class="order-card" style="--order-color:${statusColor}" onclick="window.openOrderDetail('${escapeHtml(o.id)}')">
-          ${orderPreviewHTML(items)}
-          <div class="flex items-center justify-between gap-1">
-            <p class="font-extrabold text-gray-800 text-sm leading-tight truncate">${escapeHtml(o.name || 'Untitled order')}</p>
-            <span class="order-status-pill" style="background:${received?'#dcfce7':'#fef3c7'};color:${received?'#15803d':'#b45309'}">${received ? (window.t?window.t('ordReceived'):'Received') : (window.t?window.t('ordPending'):'Pending')}</span>
+          <div class="order-card-media">
+            ${orderPreviewHTML(items)}
+            <span class="order-status-pill order-status-float" style="background:${received?'rgba(220,252,231,0.92)':'rgba(254,243,199,0.92)'};color:${received?'#15803d':'#b45309'}">${statusLabel}</span>
           </div>
-          <p class="text-xs text-gray-400 font-medium mt-0.5">${items.length} ${items.length===1?'item':'items'} · ${t.totalQty} pcs</p>
-          <p class="text-[10px] text-gray-300 font-medium mt-0.5">${o.purchaseDate ? escapeHtml(o.purchaseDate) : '—'}${o.receiveDate ? ' → ' + escapeHtml(o.receiveDate) : ''}</p>
+          <p class="font-extrabold text-gray-800 text-sm leading-tight truncate mt-1">${escapeHtml(o.name || 'Untitled order')}</p>
+          <p class="order-card-meta">
+            <span>📦 ${items.length} ${items.length===1?'item':'items'} · ${t.totalQty} pcs</span>
+            ${o.purchaseDate ? `<span>🗓️ ${escapeHtml(o.purchaseDate)}${o.receiveDate ? ' → ' + escapeHtml(o.receiveDate) : ''}</span>` : ''}
+          </p>
           <div class="order-card-footer">
             <span>${window.t?window.t('total'):'Total'}</span>
             <strong>${orderMoney(t.totalRealIqd)} <small>IQD</small></strong>
