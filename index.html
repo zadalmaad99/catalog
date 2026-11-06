@@ -4144,6 +4144,7 @@ service cloud.firestore {
         addItem: '+ إضافة صنف', receivedHint: 'مؤشَّر عليه كمُستلَم — أضفه للكاتالوج كمجلد.', addToFolders: 'إضافة إلى الفولدرات',
         total: 'المجموع', ordReceived: 'مُستلَم', ordPending: 'بالطريق',
         noItemsYet: 'ما فيه أصناف بعد — أضف وحدة بالأسفل.', storePlatformPh: '1688 / Taobao…', storeLinkPh: 'رابط',
+        sizesPh: '90,100,110 أو from 90 to 110',
         excludedBadge: 'غير مشمولة',
         cancel: 'إلغاء',
         save: 'حفظ',
@@ -4308,6 +4309,7 @@ service cloud.firestore {
         addItem: '+ زیادکردنی بابەت', receivedHint: 'وەک وەرگیراو نیشانە کراوە — زیادی بکە بۆ کاتالۆگ وەک فۆڵدەر.', addToFolders: 'زیادکردن بۆ فۆڵدەرەکان',
         total: 'کۆی گشتی', ordReceived: 'وەرگیراو', ordPending: 'لە ڕێگادایە',
         noItemsYet: 'هیچ بابەتێک نییە — یەکێک زیاد بکە لە خوارەوە.', storePlatformPh: '1688 / Taobao…', storeLinkPh: 'لینک',
+        sizesPh: '90,100,110 یان from 90 to 110',
         excludedBadge: 'بێ داشکاندن',
         cancel: 'پاشگەزبوونەوە',
         save: 'پاشەکەوتکردن',
@@ -4472,6 +4474,7 @@ service cloud.firestore {
         addItem: '+ Add Item', receivedHint: 'Marked as received — add it to the Catalog as a folder.', addToFolders: 'Add to Folders',
         total: 'Total', ordReceived: 'Received', ordPending: 'Pending',
         noItemsYet: 'No items yet — add one below.', storePlatformPh: '1688 / Taobao…', storeLinkPh: 'Link',
+        sizesPh: '90,100,110 or from 90 to 110',
         excludedBadge: 'Excluded',
         cancel: 'Cancel',
         save: 'Save',
@@ -9495,6 +9498,30 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
   rednote: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj4KICA8Y2lyY2xlIGN4PSI1MCIgY3k9IjUwIiByPSI1MCIgZmlsbD0iI0ZGMjQ0MiIvPgogIDxyZWN0IHg9IjIyIiB5PSIyOCIgd2lkdGg9IjU2IiBoZWlnaHQ9IjQ0IiByeD0iNSIgZmlsbD0id2hpdGUiLz4KICA8cmVjdCB4PSI0OCIgeT0iMjgiIHdpZHRoPSI0IiBoZWlnaHQ9IjQ0IiBmaWxsPSIjRkYyNDQyIi8+CiAgPHJlY3QgeD0iMjgiIHk9IjM3IiB3aWR0aD0iMTYiIGhlaWdodD0iMyIgcng9IjEuNSIgZmlsbD0iI0ZGMjQ0MiIgb3BhY2l0eT0iMC4zNSIvPgogIDxyZWN0IHg9IjI4IiB5PSI0MyIgd2lkdGg9IjE2IiBoZWlnaHQ9IjMiIHJ4PSIxLjUiIGZpbGw9IiNGRjI0NDIiIG9wYWNpdHk9IjAuMzUiLz4KICA8cmVjdCB4PSIyOCIgeT0iNDkiIHdpZHRoPSIxNiIgaGVpZ2h0PSIzIiByeD0iMS41IiBmaWxsPSIjRkYyNDQyIiBvcGFjaXR5PSIwLjM1Ii8+CiAgPHJlY3QgeD0iMjgiIHk9IjU1IiB3aWR0aD0iMTIiIGhlaWdodD0iMyIgcng9IjEuNSIgZmlsbD0iI0ZGMjQ0MiIgb3BhY2l0eT0iMC4zNSIvPgogIDxyZWN0IHg9IjU2IiB5PSIzNyIgd2lkdGg9IjE2IiBoZWlnaHQ9IjMiIHJ4PSIxLjUiIGZpbGw9IiNGRjI0NDIiIG9wYWNpdHk9IjAuMzUiLz4KICA8cmVjdCB4PSI1NiIgeT0iNDMiIHdpZHRoPSIxNiIgaGVpZ2h0PSIzIiByeD0iMS41IiBmaWxsPSIjRkYyNDQyIiBvcGFjaXR5PSIwLjM1Ii8+CiAgPHJlY3QgeD0iNTYiIHk9IjQ5IiB3aWR0aD0iMTYiIGhlaWdodD0iMyIgcng9IjEuNSIgZmlsbD0iI0ZGMjQ0MiIgb3BhY2l0eT0iMC4zNSIvPgogIDxyZWN0IHg9IjU2IiB5PSI1NSIgd2lkdGg9IjEyIiBoZWlnaHQ9IjMiIHJ4PSIxLjUiIGZpbGw9IiNGRjI0NDIiIG9wYWNpdHk9IjAuMzUiLz4KICA8cG9seWdvbiBwb2ludHM9IjY4LDI4IDc2LDI4IDc2LDQ2IDcyLDQyIDY4LDQ2IiBmaWxsPSIjRkYyNDQyIi8+CiAgPHBvbHlnb24gcG9pbnRzPSI3MiwzMSA3MywzNCA3NiwzNCA3NCwzNiA3NSwzOSA3MiwzNyA2OSwzOSA3MCwzNiA2OCwzNCA3MSwzNCIgZmlsbD0id2hpdGUiIHRyYW5zZm9ybT0ic2NhbGUoMC41NSkgdHJhbnNsYXRlKDU4LDI1KSIvPgo8L3N2Zz4K',
 };
 
+    // Lets the Sizes field take a range shorthand instead of typing every number by hand —
+    // "from 90 to 110", "90 to 110", "90-110" all expand to 90, 100, 110 (standard clothing
+    // size step of 10). Anything with a comma, or that doesn't match a range, falls back to the
+    // plain comma-split it always supported.
+    window.parseSizesInput = function(raw) {
+      const s = (raw || '').trim();
+      if (!s) return [];
+      if (!s.includes(',')) {
+        const m = s.match(/^(?:from\s*)?(\d+)\s*(?:-|to|~|إلى|الى)\s*(\d+)$/i);
+        if (m) {
+          const a = parseInt(m[1], 10), b = parseInt(m[2], 10);
+          if (!isNaN(a) && !isNaN(b) && a !== b) {
+            const step = 10; // standard clothing size increment
+            const lo = Math.min(a, b), hi = Math.max(a, b);
+            const out = [];
+            for (let v = lo; v <= hi; v += step) out.push(String(v));
+            if (out[out.length - 1] !== String(hi)) out.push(String(hi));
+            return out;
+          }
+        }
+      }
+      return s.split(',').map(x => x.trim()).filter(Boolean);
+    };
+
     // Display labels for the quick-pick row; also used to match a typed/saved storePlatform
     // string (e.g. "Taobao", "1688") back to its icon, case-insensitively, below.
     const PLATFORM_LABELS = { wechat:'WeChat', taobao:'Taobao', '1688':'1688', aliexpress:'AliExpress', alibaba:'Alibaba', rednote:'RedNote', tiktok:'TikTok' };
@@ -9671,7 +9698,7 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
               </div>
               <div class="od-item-field">
                 <span class="od-item-field-label">${escapeHtml(window.t?window.t('colSizes'):'Sizes')}</span>
-                <input class="od-input" value="${escapeHtml((it.sizes||[]).join(', '))}" placeholder="90,100,110" onchange="window.updateOrderItem(${idx},'sizes',this.value.split(',').map(s=>s.trim()).filter(Boolean))" />
+                <input class="od-input" value="${escapeHtml((it.sizes||[]).join(', '))}" placeholder="${escapeHtml(window.t?window.t('sizesPh'):'90,100,110 or from 90 to 110')}" onchange="window.updateOrderItem(${idx},'sizes',window.parseSizesInput(this.value))" />
               </div>
             </div>
             <div class="od-item-cost">
