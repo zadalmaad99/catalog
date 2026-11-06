@@ -66,6 +66,70 @@
     /* The bottom tab bar only ever shows over these two top-level views — reserve room so its
        last row of content isn't hidden underneath it. */
     #folders-view, #orders-view { padding-bottom: 64px; }
+
+    /* ── Order detail: per-item cards + totals summary ── */
+    .od-items { display: flex; flex-direction: column; gap: 10px; }
+    .od-item-card {
+      background: #fff; border: 1px solid #f3e8e0; border-radius: 16px; padding: 12px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.04);
+    }
+    .od-item-top { display: flex; gap: 10px; align-items: flex-start; }
+    .od-item-img-wrap { cursor: pointer; flex-shrink: 0; display: block; }
+    .od-item-img {
+      width: 64px; height: 64px; border-radius: 12px; object-fit: cover;
+      border: 1px solid #f1f1f1;
+    }
+    .od-item-img-empty {
+      display: flex; align-items: center; justify-content: center;
+      background: #f9fafb; font-size: 1.3rem;
+    }
+    .od-item-store { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+    .od-item-remove {
+      flex-shrink: 0; width: 28px; height: 28px; border-radius: 9px; border: none;
+      background: #fef2f2; color: #ef4444; display: flex; align-items: center; justify-content: center;
+    }
+    .od-input {
+      width: 100%; border: 1px solid #ececec; border-radius: 8px; padding: 6px 9px;
+      font-size: 0.78rem; font-weight: 600; color: #374151; background: #fcfcfc;
+      transition: border-color 0.15s;
+    }
+    .od-input:focus { outline: none; border-color: #e85d3a; background: #fff; }
+    .od-input-strong { font-weight: 800; color: #1a1a2e; font-size: 0.82rem; }
+    .od-input-muted { font-size: 0.7rem; color: #9ca3af; }
+    .od-input-num { text-align: center; font-weight: 800; }
+    .od-size-chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 2px; }
+    .od-size-chip {
+      font-size: 0.65rem; font-weight: 700; color: #0369a1; background: #e0f2fe;
+      border-radius: 999px; padding: 2px 8px;
+    }
+    .od-item-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 10px; }
+    .od-item-field { display: flex; flex-direction: column; gap: 3px; }
+    .od-item-field-label { font-size: 0.6rem; font-weight: 800; color: #b0b7c3; text-transform: uppercase; text-align: center; }
+    .od-item-static { text-align: center; font-weight: 800; color: #6b7280; font-size: 0.8rem; padding: 6px 0; }
+    .od-item-cost {
+      margin-top: 10px; padding-top: 10px; border-top: 1px dashed #f1e4da;
+      display: flex; align-items: center; justify-content: space-between;
+      font-size: 0.72rem; font-weight: 700; color: #9ca3af;
+    }
+    .od-item-cost strong { color: #1a1a2e; font-size: 1rem; font-weight: 900; }
+    .od-item-cost strong small { font-size: 0.6rem; font-weight: 700; color: #9ca3af; }
+
+    .od-summary { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin: 16px 0; }
+    .od-stat-tile {
+      border-radius: 14px; padding: 12px; display: flex; flex-direction: column; gap: 2px;
+    }
+    .od-stat-label { font-size: 0.6rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.03em; opacity: 0.65; }
+    .od-stat-value { font-size: 1.05rem; font-weight: 900; }
+    .od-stat-blue  { background: linear-gradient(135deg,#eff6ff,#dbeafe); color: #1d4ed8; }
+    .od-stat-amber { background: linear-gradient(135deg,#fffbeb,#fef3c7); color: #b45309; }
+    .od-stat-green { background: linear-gradient(135deg,#f0fdf4,#dcfce7); color: #15803d; }
+    .od-stat-dark  { background: linear-gradient(135deg,#1a1a2e,#2d2d4e); color: #fff; grid-column: span 2; flex-direction: row; align-items: center; justify-content: space-between; }
+    .od-stat-dark .od-stat-value { font-size: 1.2rem; }
+    @media (min-width: 640px) {
+      .od-item-grid { grid-template-columns: repeat(4, 1fr); }
+      .od-summary { grid-template-columns: repeat(4, 1fr); }
+      .od-stat-dark { grid-column: span 1; flex-direction: column; align-items: flex-start; }
+    }
   </style>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -2509,27 +2573,14 @@ service cloud.firestore {
         <p class="text-xs text-gray-400 flex-1" style="min-width:200px;" data-i18n="shippingHint">Added to each item's real cost, shown in IQD, in its own column.</p>
       </div>
 
-      <!-- Line items -->
-      <div style="overflow-x:auto;">
-        <table id="od-table" style="width:100%;border-collapse:collapse;font-size:0.78rem;min-width:820px;">
-          <thead>
-            <tr style="text-align:center;color:#9ca3af;font-size:0.65rem;font-weight:800;text-transform:uppercase;">
-              <th style="padding:6px;" data-i18n="colPicture">Picture</th>
-              <th style="padding:6px;" data-i18n="colStore">Store / Platform</th>
-              <th style="padding:6px;" data-i18n="colUnitCny">Unit Price ¥</th>
-              <th style="padding:6px;" data-i18n="colUnitUsd">≈ $</th>
-              <th style="padding:6px;" data-i18n="colSizes">Sizes</th>
-              <th style="padding:6px;" data-i18n="colQty">Qty</th>
-              <th style="padding:6px;" data-i18n="colShipPc">Ship/pc $</th>
-              <th style="padding:6px;" data-i18n="colRealCost">Real Cost IQD</th>
-              <th style="padding:6px;"></th>
-            </tr>
-          </thead>
-          <tbody id="od-rows"></tbody>
-          <tfoot id="od-totals"></tfoot>
-        </table>
-      </div>
-      <button onclick="window.addOrderItem()" class="mt-3 h-10 px-4 rounded-xl border-2 border-dashed border-gray-200 text-gray-500 text-sm font-bold w-full" data-i18n="addItem">+ Add Item</button>
+      <!-- Line items — one card per item (not a spreadsheet-style table: a 9-column grid has no
+           good answer on a 360px-wide phone, so each item gets its own card instead, matching
+           the rest of the app's card-based visual language). -->
+      <div id="od-rows" class="od-items"></div>
+      <button onclick="window.addOrderItem()" class="mt-3 h-11 px-4 rounded-2xl border-2 border-dashed border-orange-200 text-[#e85d3a] text-sm font-bold w-full bg-orange-50/40 hover:bg-orange-50 transition-colors" data-i18n="addItem">+ Add Item</button>
+
+      <!-- Order summary — totals across every item, restated in all three currencies -->
+      <div id="od-totals" class="od-summary"></div>
 
       <div id="od-receive-actions" class="hidden mt-4 bg-green-50 border border-green-100 rounded-xl p-3 flex items-center justify-between flex-wrap gap-2">
         <p class="text-xs text-green-700 font-semibold" data-i18n="receivedHint">Marked as received — add it to the Catalog as a folder.</p>
@@ -4055,6 +4106,7 @@ service cloud.firestore {
         colSizes: 'المقاسات', colQty: 'الكمية', colShipPc: 'نقل/قطعة $', colRealCost: 'التكلفة الحقيقية (دينار)',
         addItem: '+ إضافة صنف', receivedHint: 'مؤشَّر عليه كمُستلَم — أضفه للكاتالوج كمجلد.', addToFolders: 'إضافة إلى الفولدرات',
         total: 'المجموع', ordReceived: 'مُستلَم', ordPending: 'بالطريق',
+        noItemsYet: 'ما فيه أصناف بعد — أضف وحدة بالأسفل.', storePlatformPh: '1688 / Taobao…', storeLinkPh: 'رابط',
         excludedBadge: 'غير مشمولة',
         cancel: 'إلغاء',
         save: 'حفظ',
@@ -4217,6 +4269,7 @@ service cloud.firestore {
         colSizes: 'قەبارەکان', colQty: 'ژمارە', colShipPc: 'گواستنەوە/دانە $', colRealCost: 'تێچووی ڕاستەقینە (دینار)',
         addItem: '+ زیادکردنی بابەت', receivedHint: 'وەک وەرگیراو نیشانە کراوە — زیادی بکە بۆ کاتالۆگ وەک فۆڵدەر.', addToFolders: 'زیادکردن بۆ فۆڵدەرەکان',
         total: 'کۆی گشتی', ordReceived: 'وەرگیراو', ordPending: 'لە ڕێگادایە',
+        noItemsYet: 'هیچ بابەتێک نییە — یەکێک زیاد بکە لە خوارەوە.', storePlatformPh: '1688 / Taobao…', storeLinkPh: 'لینک',
         excludedBadge: 'بێ داشکاندن',
         cancel: 'پاشگەزبوونەوە',
         save: 'پاشەکەوتکردن',
@@ -4379,6 +4432,7 @@ service cloud.firestore {
         colSizes: 'Sizes', colQty: 'Qty', colShipPc: 'Ship/pc $', colRealCost: 'Real Cost IQD',
         addItem: '+ Add Item', receivedHint: 'Marked as received — add it to the Catalog as a folder.', addToFolders: 'Add to Folders',
         total: 'Total', ordReceived: 'Received', ordPending: 'Pending',
+        noItemsYet: 'No items yet — add one below.', storePlatformPh: '1688 / Taobao…', storeLinkPh: 'Link',
         excludedBadge: 'Excluded',
         cancel: 'Cancel',
         save: 'Save',
@@ -9431,72 +9485,97 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
 
     function renderOrderRows() {
       const o = currentOrder;
-      const tbody = document.getElementById('od-rows');
-      const tfoot = document.getElementById('od-totals');
-      if (!tbody || !o) return;
+      const list = document.getElementById('od-rows');
+      const summary = document.getElementById('od-totals');
+      if (!list || !o) return;
       const items = o.items || [];
       const cnyRate = parseFloat(o.cnyRate) || 0;
       const iqdRate = parseFloat(o.usdToIqdRate) || 0;
       const shipPerPiece = parseFloat(o.shippingPricePerPiece) || 0;
 
-      let totalQty = 0, totalCny = 0, totalUsd = 0, totalRealIqd = 0;
+      let totalQty = 0, totalCny = 0, totalUsd = 0, totalShipUsd = 0, totalRealIqd = 0;
 
-      tbody.innerHTML = items.map((it, idx) => {
-        const unitCny = parseFloat(it.unitPriceCny) || 0;
-        const qty = parseInt(it.quantity) || 0;
-        const unitUsd = cnyRate > 0 ? unitCny / cnyRate : 0;
-        const lineCny = unitCny * qty;
-        const lineUsd = unitUsd * qty;
-        const shipLineUsd = shipPerPiece * qty;
-        const realCostUsd = lineUsd + shipLineUsd;
-        const realCostIqd = iqdRate > 0 ? realCostUsd * iqdRate : 0;
-        totalQty += qty; totalCny += lineCny; totalUsd += lineUsd; totalRealIqd += realCostIqd;
+      if (!items.length) {
+        list.innerHTML = `<p class="text-xs text-gray-400 text-center py-8" data-i18n="noItemsYet">No items yet — add one below.</p>`;
+      } else {
+        list.innerHTML = items.map((it, idx) => {
+          const unitCny = parseFloat(it.unitPriceCny) || 0;
+          const qty = parseInt(it.quantity) || 0;
+          const unitUsd = cnyRate > 0 ? unitCny / cnyRate : 0;
+          const lineCny = unitCny * qty;
+          const lineUsd = unitUsd * qty;
+          const shipLineUsd = shipPerPiece * qty;
+          const realCostUsd = lineUsd + shipLineUsd;
+          const realCostIqd = iqdRate > 0 ? realCostUsd * iqdRate : 0;
+          totalQty += qty; totalCny += lineCny; totalUsd += lineUsd; totalShipUsd += shipLineUsd; totalRealIqd += realCostIqd;
 
-        const img = it.imageUrl
-          ? `<img src="${escapeHtml(optimizedCloudinaryUrl(it.imageUrl,'200x200'))}" style="width:44px;height:44px;border-radius:8px;object-fit:cover;" />`
-          : `<span style="width:44px;height:44px;border-radius:8px;background:#f3f4f6;display:flex;align-items:center;justify-content:center;">🖼️</span>`;
+          const img = it.imageUrl
+            ? `<img src="${escapeHtml(optimizedCloudinaryUrl(it.imageUrl,'300x300'))}" class="od-item-img" />`
+            : `<span class="od-item-img od-item-img-empty">🖼️</span>`;
+          const sizesHTML = (it.sizes||[]).length
+            ? `<div class="od-size-chips">${it.sizes.map(s=>`<span class="od-size-chip">${escapeHtml(s)}</span>`).join('')}</div>`
+            : '';
 
-        return `
-        <tr style="border-top:1px solid #f1f1f1;text-align:center;">
-          <td style="padding:6px;">
-            <label style="cursor:pointer;display:inline-block;" title="Click to upload a photo">
-              ${img}
-              <input type="file" accept="image/*" class="hidden" onchange="window.uploadOrderItemImage(${idx}, this)" />
-            </label>
-          </td>
-          <td style="padding:6px;max-width:120px;">
-            <input value="${escapeHtml(it.storePlatform||'')}" placeholder="1688 / Taobao…" onchange="window.updateOrderItem(${idx},'storePlatform',this.value)" style="width:100%;border:1px solid #eee;border-radius:6px;padding:3px 5px;font-size:0.72rem;margin-bottom:2px;" />
-            <input value="${escapeHtml(it.storeLink||'')}" placeholder="Link" onchange="window.updateOrderItem(${idx},'storeLink',this.value)" style="width:100%;border:1px solid #eee;border-radius:6px;padding:3px 5px;font-size:0.68rem;color:#9ca3af;" />
-          </td>
-          <td style="padding:6px;">
-            <input type="number" min="0" step="0.01" value="${unitCny||''}" onchange="window.updateOrderItem(${idx},'unitPriceCny',parseFloat(this.value)||0)" style="width:70px;border:1px solid #eee;border-radius:6px;padding:3px 5px;text-align:center;font-weight:700;" />
-          </td>
-          <td style="padding:6px;font-weight:700;color:#6b7280;">$${orderMoney(unitUsd)}</td>
-          <td style="padding:6px;max-width:130px;">
-            <input value="${escapeHtml((it.sizes||[]).join(', '))}" placeholder="90,100,110" onchange="window.updateOrderItem(${idx},'sizes',this.value.split(',').map(s=>s.trim()).filter(Boolean))" style="width:100%;border:1px solid #eee;border-radius:6px;padding:3px 5px;font-size:0.72rem;" />
-          </td>
-          <td style="padding:6px;">
-            <input type="number" min="0" value="${qty||''}" onchange="window.updateOrderItem(${idx},'quantity',parseInt(this.value)||0)" style="width:56px;border:1px solid #eee;border-radius:6px;padding:3px 5px;text-align:center;font-weight:700;" />
-          </td>
-          <td style="padding:6px;color:#9ca3af;">$${orderMoney(shipPerPiece)}</td>
-          <td style="padding:6px;font-weight:800;color:#1a1a2e;">${orderMoney(realCostIqd)}</td>
-          <td style="padding:6px;">
-            <button onclick="window.removeOrderItem(${idx})" style="width:26px;height:26px;border-radius:8px;background:#fee2e2;color:#ef4444;border:none;">✕</button>
-          </td>
-        </tr>`;
-      }).join('');
+          return `
+          <div class="od-item-card">
+            <div class="od-item-top">
+              <label class="od-item-img-wrap" title="Click to upload a photo">
+                ${img}
+                <input type="file" accept="image/*" class="hidden" onchange="window.uploadOrderItemImage(${idx}, this)" />
+              </label>
+              <div class="od-item-store">
+                <input class="od-input od-input-strong" value="${escapeHtml(it.storePlatform||'')}" placeholder="${escapeHtml(window.t?window.t('storePlatformPh'):'1688 / Taobao…')}" onchange="window.updateOrderItem(${idx},'storePlatform',this.value)" />
+                <input class="od-input od-input-muted" value="${escapeHtml(it.storeLink||'')}" placeholder="${escapeHtml(window.t?window.t('storeLinkPh'):'Link')}" onchange="window.updateOrderItem(${idx},'storeLink',this.value)" />
+                ${sizesHTML}
+              </div>
+              <button onclick="window.removeOrderItem(${idx})" class="od-item-remove" title="Remove">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
+              </button>
+            </div>
+            <div class="od-item-grid">
+              <div class="od-item-field">
+                <span class="od-item-field-label">${escapeHtml(window.t?window.t('colUnitCny'):'Unit Price ¥')}</span>
+                <input type="number" min="0" step="0.01" class="od-input od-input-num" value="${unitCny||''}" placeholder="0" onchange="window.updateOrderItem(${idx},'unitPriceCny',parseFloat(this.value)||0)" />
+              </div>
+              <div class="od-item-field">
+                <span class="od-item-field-label">${escapeHtml(window.t?window.t('colUnitUsd'):'≈ $')}</span>
+                <span class="od-item-static">$${orderMoney(unitUsd)}</span>
+              </div>
+              <div class="od-item-field">
+                <span class="od-item-field-label">${escapeHtml(window.t?window.t('colQty'):'Qty')}</span>
+                <input type="number" min="0" class="od-input od-input-num" value="${qty||''}" placeholder="0" onchange="window.updateOrderItem(${idx},'quantity',parseInt(this.value)||0)" />
+              </div>
+              <div class="od-item-field">
+                <span class="od-item-field-label">${escapeHtml(window.t?window.t('colSizes'):'Sizes')}</span>
+                <input class="od-input" value="${escapeHtml((it.sizes||[]).join(', '))}" placeholder="90,100,110" onchange="window.updateOrderItem(${idx},'sizes',this.value.split(',').map(s=>s.trim()).filter(Boolean))" />
+              </div>
+            </div>
+            <div class="od-item-cost">
+              <span>${escapeHtml(window.t?window.t('colRealCost'):'Real Cost IQD')}</span>
+              <strong>${orderMoney(realCostIqd)} <small>IQD</small></strong>
+            </div>
+          </div>`;
+        }).join('');
+      }
 
-      tfoot.innerHTML = `
-        <tr style="border-top:2px solid #e5e7eb;text-align:center;font-weight:800;">
-          <td colspan="2" style="padding:8px;">${window.t?window.t('total'):'Total'}</td>
-          <td style="padding:8px;">¥${orderMoney(totalCny)}</td>
-          <td style="padding:8px;">$${orderMoney(totalUsd)}</td>
-          <td></td>
-          <td style="padding:8px;">${totalQty}</td>
-          <td></td>
-          <td style="padding:8px;color:#1a1a2e;">${orderMoney(totalRealIqd)}</td>
-          <td></td>
-        </tr>`;
+      const t = (k, fb) => window.t ? window.t(k) : fb;
+      summary.innerHTML = `
+        <div class="od-stat-tile od-stat-blue">
+          <span class="od-stat-label">${t('colQty','Qty')}</span>
+          <span class="od-stat-value">${totalQty}</span>
+        </div>
+        <div class="od-stat-tile od-stat-amber">
+          <span class="od-stat-label">${t('colUnitCny','¥')}</span>
+          <span class="od-stat-value">¥${orderMoney(totalCny)}</span>
+        </div>
+        <div class="od-stat-tile od-stat-green">
+          <span class="od-stat-label">$</span>
+          <span class="od-stat-value">$${orderMoney(totalUsd + totalShipUsd)}</span>
+        </div>
+        <div class="od-stat-tile od-stat-dark">
+          <span class="od-stat-label">${t('total','Total')} (IQD)</span>
+          <span class="od-stat-value">${orderMoney(totalRealIqd)}</span>
+        </div>`;
     }
 
     window.saveOrderField = async function(field, value) {
