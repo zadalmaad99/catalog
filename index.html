@@ -10417,10 +10417,11 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
 
     // Renders one of the app's own platform icons (stored as inline SVG data-URIs, which
     // ExcelJS can't embed directly) to a small PNG buffer so it can go inside a cell.
-    // EMU (English Metric Units) is what OOXML drawing offsets are actually stored in — 9525 EMU
-    // per CSS pixel at 96dpi. Passing an explicit colOff/rowOff in EMU (vs. a fractional col/row)
-    // positions an image exactly, regardless of that column's/row's own custom width/height.
-    function _emuPx(px) { return Math.round(px * 9525); }
+    // Solves for the fractional col/row ExcelJS's addImage needs so that ITS OWN (flat, not
+    // pixel-accurate) 10,000-EMU-per-char/per-point conversion produces the real pixel offset we
+    // actually want in the written file (9525 EMU per CSS px at 96dpi is the real OOXML unit).
+    function _excelColOffFrac(px, colWidthChars) { return (px * 9525) / ((colWidthChars || 8) * 10000); }
+    function _excelRowOffFrac(px, rowHeightPts) { return (px * 9525) / ((rowHeightPts || 15) * 10000); }
 
     const _excelImageBufCache = new Map();
     async function _fetchExcelPhotoBuf(imageUrl) {
@@ -10537,12 +10538,15 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
           if (has('pic') && excelPhotoBufs[rowI]) {
             try {
               const imgId = wb.addImage({ buffer: excelPhotoBufs[rowI], extension: 'jpeg' });
-              // Plain integer col/row + an EMU colOff/rowOff, not a fractional col/row (e.g.
-              // `col: 0.1`) — ExcelJS converts a fractional col into EMU using its own internal
-              // per-column constant that does NOT match this column's actual (custom) pixel
-              // width, so a "0.1 of the column" offset lands nowhere near 10% of its real width.
-              // An explicit EMU offset is unambiguous regardless of column width.
-              ws.addImage(imgId, { tl: { col: 0, colOff: _emuPx(4), row: rIdx - 1, rowOff: _emuPx(2) }, ext: { width: 84, height: 84 } });
+              // A literal `colOff`/`rowOff` field is silently ignored by this ExcelJS version's
+              // addImage (confirmed by inspecting a real exported file's drawing XML: every
+              // offset came back as exactly 0) — only a FRACTIONAL col/row does anything. And
+              // that fraction isn't scaled by the column's real pixel width either: ExcelJS's own
+              // conversion is a flat 10,000 EMU per column-char (or per row-point), unrelated to
+              // how wide the column actually renders. `_excelColOffFrac`/`_excelRowOffFrac` solve
+              // for the fraction that makes ExcelJS land on the real pixel offset we want.
+              const picColChars = ws.getColumn('pic') ? ws.getColumn('pic').width : 16;
+              ws.addImage(imgId, { tl: { col: _excelColOffFrac(4, picColChars), row: rIdx - 1 + _excelRowOffFrac(2, 86) }, ext: { width: 84, height: 84 } });
             } catch (e) { console.error('excel image embed failed', e); }
           }
           if (has('store')) {
@@ -10555,7 +10559,7 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
               const storeColPx = Math.floor((256 * storeColChars + Math.floor(128 / 7)) / 256 * 7);
               const iconSize = 36;
               const iconLeftPx = Math.max(0, (storeColPx - iconSize) / 2);
-              ws.addImage(iconId, { tl: { col: storeColIdx, colOff: _emuPx(iconLeftPx), row: rIdx - 1, rowOff: _emuPx(6) }, ext: { width: iconSize, height: iconSize } });
+              ws.addImage(iconId, { tl: { col: storeColIdx + _excelColOffFrac(iconLeftPx, storeColChars), row: rIdx - 1 + _excelRowOffFrac(6, 86) }, ext: { width: iconSize, height: iconSize } });
             }
           }
           rIdx++;
