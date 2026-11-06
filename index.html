@@ -125,18 +125,28 @@
     /* ── Order detail: per-item cards + totals summary ── */
     .od-items { display: flex; flex-direction: column; gap: 10px; }
     .od-item-card {
-      background: #fff; border: 1px solid #f3e8e0; border-radius: 16px; padding: 12px;
+      background: #fff; border: 1px solid #f3e8e0; border-radius: 16px; padding: 10px;
       box-shadow: 0 2px 10px rgba(0,0,0,0.04);
     }
-    .od-item-top { display: flex; gap: 10px; align-items: flex-start; }
+    /* One horizontal strip instead of several stacked blocks — every field for an item (photo,
+       code, store, price, qty, sizes, real cost) lives in a single scrollable row, matching the
+       Catalog's own list-view row pattern (#models-list) rather than a multi-section card. */
+    .od-strip {
+      display: flex; align-items: center; gap: 14px; overflow-x: auto;
+      -webkit-overflow-scrolling: touch; padding-bottom: 2px; scrollbar-width: thin;
+    }
+    .od-strip-field { flex-shrink: 0; display: flex; flex-direction: column; gap: 4px; }
+    .od-strip-field-shrink { flex-shrink: 0; }
+    .od-strip-cost { white-space: nowrap; font-size: 0.95rem; font-weight: 900; color: #1a1a2e; }
+    .od-strip-cost small { font-size: 0.58rem; font-weight: 700; color: #9ca3af; }
     .od-item-img-wrap { cursor: pointer; flex-shrink: 0; display: block; }
     .od-item-img {
-      width: 92px; height: 92px; border-radius: 14px; object-fit: cover;
+      width: 64px; height: 64px; border-radius: 12px; object-fit: cover;
       border: 1px solid #f1f1f1;
     }
     .od-item-img-empty {
       display: flex; align-items: center; justify-content: center;
-      background: #f9fafb; font-size: 1.8rem;
+      background: #f9fafb; font-size: 1.4rem;
     }
     .od-item-store { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; justify-content: center; }
     /* Never wraps to a 2nd line — scrolls sideways instead, so a 7-icon picker stays one tidy
@@ -163,6 +173,29 @@
     }
     .od-currency-toggle button.active { background: #e85d3a; color: #fff; }
     .od-input-with-icon .od-input { flex: 1; }
+    /* Platform picker, as a dropdown — one compact trigger button (current icon + chevron)
+       instead of a row of 7 icons on every card. */
+    .od-platform-dropdown-trigger {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 6px 10px 6px 6px; border-radius: 999px; border: 1.5px solid #ececec;
+      background: #fff; cursor: pointer; max-width: 100%;
+    }
+    .od-platform-dropdown-trigger .od-platform-linked-label { color: #374151; }
+    .od-platform-dropdown-chevron { color: #9ca3af; flex-shrink: 0; }
+    #od-platform-dropdown-backdrop { position: fixed; inset: 0; z-index: 9985; display: none; }
+    #od-platform-dropdown-backdrop:not(.hidden) { display: block; }
+    #od-platform-dropdown {
+      position: fixed; z-index: 9986; background: #fff; border-radius: 14px;
+      box-shadow: 0 12px 32px rgba(0,0,0,0.18); padding: 6px; min-width: 160px;
+      max-height: 280px; overflow-y: auto;
+    }
+    #od-platform-dropdown.hidden { display: none; }
+    .od-platform-dropdown-item {
+      display: flex; align-items: center; gap: 10px; width: 100%; padding: 8px 10px;
+      border: none; background: none; border-radius: 10px; cursor: pointer;
+      font-size: 0.82rem; font-weight: 700; color: #374151; text-align: left;
+    }
+    .od-platform-dropdown-item:active { background: #fff1ea; }
     /* The collapsed "linked platform" button — replaces the picker + both text inputs once a
        link is set: tap opens it (window.odPress*), long-press edits it. */
     .od-platform-linked {
@@ -2738,6 +2771,11 @@ service cloud.firestore {
       </div>
     </div>
 
+    <!-- Platform picker, as a floating dropdown instead of a row of icons on every card —
+         one shared popover, repositioned next to whichever item's trigger button was tapped. -->
+    <div id="od-platform-dropdown-backdrop" class="hidden" onclick="window.odClosePlatformDropdown()"></div>
+    <div id="od-platform-dropdown" class="hidden"></div>
+
     <!-- ═══════════════ TRASH VIEW ═══════════════ -->
     <div id="trash-view" class="hidden">
       <!-- Breadcrumb -->
@@ -4260,7 +4298,7 @@ service cloud.firestore {
         noItemsYet: 'ما فيه أصناف بعد — أضف وحدة بالأسفل.', storePlatformPh: '1688 / Taobao…', storeLinkPh: 'رابط',
         sizesPh: '90,100,110 أو from 90 to 110',
         editLinkPrompt: 'تعديل الرابط (اتركه فارغاً للحذف):',
-        colCode: 'الكود (مثلاً S304)', addItemsFromPhotos: '+ إضافة ألوان مختلفة',
+        colCode: 'الكود (مثلاً S304)', addItemsFromPhotos: '+ إضافة ألوان مختلفة', choosePlatform: 'اختر المنصة',
         excludedBadge: 'غير مشمولة',
         cancel: 'إلغاء',
         ok: 'تأكيد',
@@ -4428,7 +4466,7 @@ service cloud.firestore {
         noItemsYet: 'هیچ بابەتێک نییە — یەکێک زیاد بکە لە خوارەوە.', storePlatformPh: '1688 / Taobao…', storeLinkPh: 'لینک',
         sizesPh: '90,100,110 یان from 90 to 110',
         editLinkPrompt: 'دەستکاری لینک بکە (بەتاڵی بهێڵەوە بۆ سڕینەوە):',
-        colCode: 'کۆد (نموونە S304)', addItemsFromPhotos: '+ زیادکردنی ڕەنگی جیاواز',
+        colCode: 'کۆد (نموونە S304)', addItemsFromPhotos: '+ زیادکردنی ڕەنگی جیاواز', choosePlatform: 'پلاتفۆرم هەڵبژێرە',
         excludedBadge: 'بێ داشکاندن',
         cancel: 'پاشگەزبوونەوە',
         ok: 'باشە',
@@ -4596,7 +4634,7 @@ service cloud.firestore {
         noItemsYet: 'No items yet — add one below.', storePlatformPh: '1688 / Taobao…', storeLinkPh: 'Link',
         sizesPh: '90,100,110 or from 90 to 110',
         editLinkPrompt: 'Edit link (leave empty to remove):',
-        colCode: 'Code (e.g. S304)', addItemsFromPhotos: '+ Add Color Variants',
+        colCode: 'Code (e.g. S304)', addItemsFromPhotos: '+ Add Color Variants', choosePlatform: 'Choose platform',
         excludedBadge: 'Excluded',
         cancel: 'Cancel',
         ok: 'OK',
@@ -9805,6 +9843,34 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
       return `<img src="${src}" class="od-platform-icon" alt="" />`;
     }
 
+    // ── Platform picker as a floating dropdown ── one shared popover (not one per card),
+    // repositioned next to whichever item's trigger button was tapped, closed by tapping its
+    // backdrop, picking an option, or re-rendering the list (removing/adding an item).
+    window.odOpenPlatformDropdown = function(idx, btnEl) {
+      const dd = document.getElementById('od-platform-dropdown');
+      const backdrop = document.getElementById('od-platform-dropdown-backdrop');
+      if (!dd || !backdrop || !btnEl) return;
+      dd.innerHTML = Object.keys(PLATFORM_LABELS).map(k => `
+        <button type="button" class="od-platform-dropdown-item" onclick="window.updateOrderItem(${idx},'storePlatform','${PLATFORM_LABELS[k]}');window.odClosePlatformDropdown()">
+          ${platformIconHTML(k)} ${escapeHtml(PLATFORM_LABELS[k])}
+        </button>`).join('');
+      const r = btnEl.getBoundingClientRect();
+      dd.classList.remove('hidden');
+      backdrop.classList.remove('hidden');
+      // Flip above the trigger if there's not enough room below, so it never gets clipped by
+      // the bottom of the screen on a row near the end of the list.
+      const ddHeight = dd.offsetHeight;
+      const fitsBelow = r.bottom + ddHeight + 8 <= window.innerHeight;
+      dd.style.left = Math.min(r.left, window.innerWidth - dd.offsetWidth - 10) + 'px';
+      dd.style.top = (fitsBelow ? r.bottom + 6 : r.top - ddHeight - 6) + 'px';
+    };
+    window.odClosePlatformDropdown = function() {
+      const dd = document.getElementById('od-platform-dropdown');
+      const backdrop = document.getElementById('od-platform-dropdown-backdrop');
+      if (dd) dd.classList.add('hidden');
+      if (backdrop) backdrop.classList.add('hidden');
+    };
+
     // Shared by the order card and the order-detail totals strip, so the two never drift apart.
     function computeOrderTotals(o) {
       const items = o.items || [];
@@ -9950,54 +10016,58 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
                  ${platformIconHTML(it.storePlatform) || '<span class="od-platform-linked-fallback">🔗</span>'}
                  <span class="od-platform-linked-label">${escapeHtml(it.storePlatform || (window.t?window.t('storeLinkPh'):'Link'))}</span>
                </button>`
-            : `<div class="od-platform-picker">
-                 ${Object.keys(PLATFORM_LABELS).map(k => `<button type="button" class="od-platform-btn${(it.storePlatform||'').trim().toLowerCase()===k?' active':''}" title="${escapeHtml(PLATFORM_LABELS[k])}" onclick="window.updateOrderItem(${idx},'storePlatform','${PLATFORM_LABELS[k]}')">${platformIconHTML(k)}</button>`).join('')}
-               </div>
+            : `<button type="button" class="od-platform-dropdown-trigger" onclick="window.odOpenPlatformDropdown(${idx}, this)">
+                 ${platformIconHTML(it.storePlatform) || '<span class="od-platform-linked-fallback">🏬</span>'}
+                 <span class="od-platform-linked-label">${escapeHtml(it.storePlatform || (window.t?window.t('choosePlatform'):'Choose'))}</span>
+                 <svg class="od-platform-dropdown-chevron" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M19 9l-7 7-7-7"/></svg>
+               </button>
                <input class="od-input" value="" placeholder="${escapeHtml(window.t?window.t('storeLinkPh'):'Link')}" onchange="window.updateOrderItem(${idx},'storeLink',this.value)" />`;
 
           return `
           <div class="od-item-card">
-            <div class="od-item-top">
-              <label class="od-item-img-wrap" title="Click to upload a photo">
+            <div class="od-strip">
+              <label class="od-item-img-wrap od-strip-field-shrink" title="Click to upload a photo">
                 ${img}
                 <input type="file" accept="image/*" class="hidden" onchange="window.uploadOrderItemImage(${idx}, this)" />
               </label>
-              <div class="od-item-store">
+              <div class="od-strip-field" style="min-width:110px;">
+                <span class="od-item-field-label" style="text-align:left;">${escapeHtml(window.t?window.t('colCode'):'Code')}</span>
                 <input class="od-input od-input-strong" value="${escapeHtml(it.code||'')}" placeholder="${escapeHtml(window.t?window.t('colCode'):'Code (e.g. S304)')}" onchange="window.updateOrderItem(${idx},'code',this.value)" />
+              </div>
+              <div class="od-strip-field" style="min-width:150px;">
+                <span class="od-item-field-label" style="text-align:left;">${escapeHtml(window.t?window.t('colStore'):'Store')}</span>
                 ${storeHTML}
               </div>
-              <button onclick="window.removeOrderItem(${idx})" class="od-item-remove" title="Remove">
-                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
-              </button>
-            </div>
-            <div class="od-item-grid">
-              <div class="od-item-field">
+              <div class="od-strip-field" style="width:84px;">
                 <span class="od-item-field-label">${escapeHtml(window.t?window.t('colUnitCny'):'Unit Price ¥')}</span>
                 <input type="number" min="0" step="0.01" class="od-input od-input-num" value="${unitCny||''}" placeholder="0" onchange="window.updateOrderItem(${idx},'unitPriceCny',parseFloat(this.value)||0)" />
               </div>
-              <div class="od-item-field">
+              <div class="od-strip-field" style="width:70px;">
                 <span class="od-item-field-label">${escapeHtml(window.t?window.t('colUnitUsd'):'≈ $')}</span>
                 <span class="od-item-static">$${orderMoney(unitUsd)}</span>
               </div>
-              <div class="od-item-field">
+              <div class="od-strip-field" style="width:64px;">
                 <span class="od-item-field-label">${escapeHtml(window.t?window.t('colQty'):'Qty')}</span>
                 <input type="number" min="0" class="od-input od-input-num" value="${qty||''}" placeholder="0" onchange="window.updateOrderItem(${idx},'quantity',parseInt(this.value)||0)" />
               </div>
-            </div>
-            <!-- Tap-to-toggle size chips instead of typing a comma list — each row keeps its own
-                 independent set (sizes were only ever COPIED as a starting point when a row was
-                 created via "Add Color Variants", never linked afterward), since not every color
-                 of the same model actually comes in the same size run. -->
-            <div class="od-sizes-picker">
-              <span class="od-item-field-label" style="text-align:left;">${escapeHtml(window.t?window.t('colSizes'):'Sizes')}</span>
-              <div class="od-size-toggles">
-                ${window.odStandardSizeToggles(idx, it.sizes||[])}
-                <button type="button" class="od-size-toggle od-size-toggle-custom" onclick="window.odAddCustomSize(${idx})" title="${escapeHtml(window.t?window.t('addCustomSize'):'Add a custom size')}">+</button>
+              <!-- Tap-to-toggle size chips instead of typing a comma list — each row keeps its own
+                   independent set (sizes were only ever COPIED as a starting point when a row was
+                   created via "Add Color Variants", never linked afterward), since not every color
+                   of the same model actually comes in the same size run. -->
+              <div class="od-strip-field">
+                <span class="od-item-field-label" style="text-align:left;">${escapeHtml(window.t?window.t('colSizes'):'Sizes')}</span>
+                <div class="od-size-toggles" style="flex-wrap:nowrap;">
+                  ${window.odStandardSizeToggles(idx, it.sizes||[])}
+                  <button type="button" class="od-size-toggle od-size-toggle-custom" onclick="window.odAddCustomSize(${idx})" title="${escapeHtml(window.t?window.t('addCustomSize'):'Add a custom size')}">+</button>
+                </div>
               </div>
-            </div>
-            <div class="od-item-cost">
-              <span>${escapeHtml(window.t?window.t('colRealCost'):'Real Cost IQD')}</span>
-              <strong>${orderMoney(realCostIqd)} <small>IQD</small></strong>
+              <div class="od-strip-field od-strip-field-shrink">
+                <span class="od-item-field-label" style="text-align:left;">${escapeHtml(window.t?window.t('colRealCost'):'Real Cost IQD')}</span>
+                <strong class="od-strip-cost">${orderMoney(realCostIqd)} <small>IQD</small></strong>
+              </div>
+              <button onclick="window.removeOrderItem(${idx})" class="od-item-remove od-strip-field-shrink" title="Remove">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
+              </button>
             </div>
           </div>`;
         }).join('');
