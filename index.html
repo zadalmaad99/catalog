@@ -291,20 +291,23 @@
     .od-item-cost strong { color: #1a1a2e; font-size: 1rem; font-weight: 900; }
     .od-item-cost strong small { font-size: 0.6rem; font-weight: 700; color: #9ca3af; }
 
-    .od-summary { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin: 16px 0; }
+    .od-summary { display: grid; grid-template-columns: 1fr; gap: 8px; margin: 16px 0; }
+    /* All four summary tiles (Qty / ¥ / $ / Total) now share one size and layout — a full-width
+       row with the label on the left and the value on the right — instead of Total alone being
+       a wide bar while the other three sat as small stacked squares above it. */
     .od-stat-tile {
-      border-radius: 14px; padding: 12px; display: flex; flex-direction: column; gap: 2px;
+      border-radius: 14px; padding: 12px; display: flex; flex-direction: row;
+      align-items: center; justify-content: space-between; gap: 8px;
     }
     .od-stat-label { font-size: 0.6rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.03em; opacity: 0.65; }
-    .od-stat-value { font-size: 1.05rem; font-weight: 900; }
+    .od-stat-value { font-size: 1.1rem; font-weight: 900; }
     .od-stat-blue  { background: linear-gradient(135deg,#eff6ff,#dbeafe); color: #1d4ed8; }
     .od-stat-amber { background: linear-gradient(135deg,#fffbeb,#fef3c7); color: #b45309; }
     .od-stat-green { background: linear-gradient(135deg,#f0fdf4,#dcfce7); color: #15803d; }
-    .od-stat-dark  { background: linear-gradient(135deg,#1a1a2e,#2d2d4e); color: #fff; grid-column: span 2; flex-direction: row; align-items: center; justify-content: space-between; }
-    .od-stat-dark .od-stat-value { font-size: 1.2rem; }
+    .od-stat-dark  { background: linear-gradient(135deg,#1a1a2e,#2d2d4e); color: #fff; }
     @media (min-width: 640px) {
       .od-summary { grid-template-columns: repeat(4, 1fr); }
-      .od-stat-dark { grid-column: span 1; flex-direction: column; align-items: flex-start; }
+      .od-stat-tile { flex-direction: column; align-items: flex-start; gap: 2px; }
     }
   </style>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
