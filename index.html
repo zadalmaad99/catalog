@@ -107,25 +107,38 @@
     .od-item-top { display: flex; gap: 10px; align-items: flex-start; }
     .od-item-img-wrap { cursor: pointer; flex-shrink: 0; display: block; }
     .od-item-img {
-      width: 64px; height: 64px; border-radius: 12px; object-fit: cover;
+      width: 92px; height: 92px; border-radius: 14px; object-fit: cover;
       border: 1px solid #f1f1f1;
     }
     .od-item-img-empty {
       display: flex; align-items: center; justify-content: center;
-      background: #f9fafb; font-size: 1.3rem;
+      background: #f9fafb; font-size: 1.8rem;
     }
-    .od-item-store { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
-    .od-platform-picker { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 2px; }
+    .od-item-store { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; justify-content: center; }
+    .od-platform-picker { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 2px; }
     .od-platform-btn {
-      width: 24px; height: 24px; border-radius: 50%; border: 1.5px solid transparent;
+      width: 32px; height: 32px; border-radius: 50%; border: 1.5px solid transparent;
       padding: 0; background: #f6f6f6; display: flex; align-items: center; justify-content: center;
       cursor: pointer; flex-shrink: 0; transition: border-color 0.15s, transform 0.1s;
     }
     .od-platform-btn:active { transform: scale(0.92); }
     .od-platform-btn.active { border-color: #e85d3a; }
-    .od-platform-icon { width: 16px; height: 16px; border-radius: 50%; object-fit: cover; flex-shrink: 0; }
+    .od-platform-icon { width: 22px; height: 22px; border-radius: 50%; object-fit: cover; flex-shrink: 0; }
     .od-input-with-icon { display: flex; align-items: center; gap: 6px; }
     .od-input-with-icon .od-input { flex: 1; }
+    /* The collapsed "linked platform" button — replaces the picker + both text inputs once a
+       link is set: tap opens it (window.odPress*), long-press edits it. */
+    .od-platform-linked {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 6px 14px 6px 6px; border-radius: 999px; border: none;
+      background: linear-gradient(135deg,#fff7f2,#ffece3);
+      cursor: pointer; align-self: flex-start; -webkit-user-select: none; user-select: none;
+      -webkit-tap-highlight-color: transparent; transition: transform 0.1s, box-shadow 0.15s;
+    }
+    .od-platform-linked:active { transform: scale(0.96); }
+    .od-platform-linked .od-platform-icon { width: 30px; height: 30px; }
+    .od-platform-linked-fallback { font-size: 1.1rem; }
+    .od-platform-linked-label { font-size: 0.82rem; font-weight: 800; color: #9a3412; }
     .od-item-remove {
       flex-shrink: 0; width: 28px; height: 28px; border-radius: 9px; border: none;
       background: #fef2f2; color: #ef4444; display: flex; align-items: center; justify-content: center;
@@ -4162,6 +4175,7 @@ service cloud.firestore {
         total: 'المجموع', ordReceived: 'مُستلَم', ordPending: 'بالطريق',
         noItemsYet: 'ما فيه أصناف بعد — أضف وحدة بالأسفل.', storePlatformPh: '1688 / Taobao…', storeLinkPh: 'رابط',
         sizesPh: '90,100,110 أو from 90 to 110',
+        editLinkPrompt: 'تعديل الرابط (اتركه فارغاً للحذف):',
         excludedBadge: 'غير مشمولة',
         cancel: 'إلغاء',
         save: 'حفظ',
@@ -4327,6 +4341,7 @@ service cloud.firestore {
         total: 'کۆی گشتی', ordReceived: 'وەرگیراو', ordPending: 'لە ڕێگادایە',
         noItemsYet: 'هیچ بابەتێک نییە — یەکێک زیاد بکە لە خوارەوە.', storePlatformPh: '1688 / Taobao…', storeLinkPh: 'لینک',
         sizesPh: '90,100,110 یان from 90 to 110',
+        editLinkPrompt: 'دەستکاری لینک بکە (بەتاڵی بهێڵەوە بۆ سڕینەوە):',
         excludedBadge: 'بێ داشکاندن',
         cancel: 'پاشگەزبوونەوە',
         save: 'پاشەکەوتکردن',
@@ -4492,6 +4507,7 @@ service cloud.firestore {
         total: 'Total', ordReceived: 'Received', ordPending: 'Pending',
         noItemsYet: 'No items yet — add one below.', storePlatformPh: '1688 / Taobao…', storeLinkPh: 'Link',
         sizesPh: '90,100,110 or from 90 to 110',
+        editLinkPrompt: 'Edit link (leave empty to remove):',
         excludedBadge: 'Excluded',
         cancel: 'Cancel',
         save: 'Save',
@@ -9519,6 +9535,45 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
     // "from 90 to 110", "90 to 110", "90-110" all expand to 90, 100, 110 (standard clothing
     // size step of 10). Anything with a comma, or that doesn't match a range, falls back to the
     // plain comma-split it always supported.
+    // ── Tap-to-open / hold-to-edit on the collapsed "linked platform" button ──
+    // A plain onclick can't tell a tap from a press-and-hold, so this tracks its own timer:
+    // if the button is still held after ODPRESS_HOLD_MS, that's a long-press (edit); if it's
+    // released before then, that's a tap (open the link). Index-keyed (not a single shared
+    // timer) since a card could in theory be interacted with while another's timer is pending.
+    const ODPRESS_HOLD_MS = 500;
+    const _odPressState = {};
+    window.odPressStart = function(idx) {
+      _odPressState[idx] = { long: false, timer: setTimeout(() => {
+        if (_odPressState[idx]) _odPressState[idx].long = true;
+        window.editOrderItemLink(idx);
+      }, ODPRESS_HOLD_MS) };
+    };
+    window.odPressEnd = function(idx) {
+      const st = _odPressState[idx];
+      if (!st) return;
+      clearTimeout(st.timer);
+      if (!st.long) window.openOrderItemLink(idx);
+      delete _odPressState[idx];
+    };
+    window.odPressCancel = function() {
+      Object.keys(_odPressState).forEach(idx => clearTimeout(_odPressState[idx].timer));
+      for (const k in _odPressState) delete _odPressState[k];
+    };
+    window.openOrderItemLink = function(idx) {
+      const it = currentOrder && currentOrder.items && currentOrder.items[idx];
+      if (!it || !(it.storeLink || '').trim()) return;
+      let url = it.storeLink.trim();
+      if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
+      window.open(url, '_blank');
+    };
+    window.editOrderItemLink = function(idx) {
+      const it = currentOrder && currentOrder.items && currentOrder.items[idx];
+      if (!it) return;
+      const val = window.prompt(window.t ? window.t('editLinkPrompt') : 'Edit link (leave empty to remove):', it.storeLink || '');
+      if (val === null) return; // cancelled
+      window.updateOrderItem(idx, 'storeLink', val.trim());
+    };
+
     window.parseSizesInput = function(raw) {
       const s = (raw || '').trim();
       if (!s) return [];
@@ -9675,11 +9730,30 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
           totalQty += qty; totalCny += lineCny; totalUsd += lineUsd; totalShipUsd += shipLineUsd; totalRealIqd += realCostIqd;
 
           const img = it.imageUrl
-            ? `<img src="${escapeHtml(optimizedCloudinaryUrl(it.imageUrl,'300x300'))}" class="od-item-img" />`
+            ? `<img src="${escapeHtml(optimizedCloudinaryUrl(it.imageUrl,'400x400'))}" class="od-item-img" />`
             : `<span class="od-item-img od-item-img-empty">🖼️</span>`;
           const sizesHTML = (it.sizes||[]).length
             ? `<div class="od-size-chips">${it.sizes.map(s=>`<span class="od-size-chip">${escapeHtml(s)}</span>`).join('')}</div>`
             : '';
+          // Once a link is set, the picker row + both text inputs collapse into one big "linked"
+          // button for just that platform — tap opens the link, press-and-hold edits it — instead
+          // of leaving the full editing UI (and every other platform icon) on screen forever.
+          const storeHTML = (it.storeLink || '').trim()
+            ? `<button type="button" class="od-platform-linked"
+                 onmousedown="window.odPressStart(${idx})" onmouseup="window.odPressEnd(${idx})" onmouseleave="window.odPressCancel()"
+                 ontouchstart="window.odPressStart(${idx})" ontouchend="window.odPressEnd(${idx})" ontouchcancel="window.odPressCancel()"
+                 title="${escapeHtml(it.storeLink)}">
+                 ${platformIconHTML(it.storePlatform) || '<span class="od-platform-linked-fallback">🔗</span>'}
+                 <span class="od-platform-linked-label">${escapeHtml(it.storePlatform || (window.t?window.t('storeLinkPh'):'Link'))}</span>
+               </button>`
+            : `<div class="od-platform-picker">
+                 ${Object.keys(PLATFORM_LABELS).map(k => `<button type="button" class="od-platform-btn${(it.storePlatform||'').trim().toLowerCase()===k?' active':''}" title="${escapeHtml(PLATFORM_LABELS[k])}" onclick="window.updateOrderItem(${idx},'storePlatform','${PLATFORM_LABELS[k]}')">${platformIconHTML(k)}</button>`).join('')}
+               </div>
+               <div class="od-input-with-icon">
+                 ${platformIconHTML(it.storePlatform)}
+                 <input class="od-input od-input-strong" value="${escapeHtml(it.storePlatform||'')}" placeholder="${escapeHtml(window.t?window.t('storePlatformPh'):'1688 / Taobao…')}" onchange="window.updateOrderItem(${idx},'storePlatform',this.value)" />
+               </div>
+               <input class="od-input od-input-muted" value="" placeholder="${escapeHtml(window.t?window.t('storeLinkPh'):'Link')}" onchange="window.updateOrderItem(${idx},'storeLink',this.value)" />`;
 
           return `
           <div class="od-item-card">
@@ -9689,14 +9763,7 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
                 <input type="file" accept="image/*" class="hidden" onchange="window.uploadOrderItemImage(${idx}, this)" />
               </label>
               <div class="od-item-store">
-                <div class="od-platform-picker">
-                  ${Object.keys(PLATFORM_LABELS).map(k => `<button type="button" class="od-platform-btn${(it.storePlatform||'').trim().toLowerCase()===k?' active':''}" title="${escapeHtml(PLATFORM_LABELS[k])}" onclick="window.updateOrderItem(${idx},'storePlatform','${PLATFORM_LABELS[k]}')">${platformIconHTML(k)}</button>`).join('')}
-                </div>
-                <div class="od-input-with-icon">
-                  ${platformIconHTML(it.storePlatform)}
-                  <input class="od-input od-input-strong" value="${escapeHtml(it.storePlatform||'')}" placeholder="${escapeHtml(window.t?window.t('storePlatformPh'):'1688 / Taobao…')}" onchange="window.updateOrderItem(${idx},'storePlatform',this.value)" />
-                </div>
-                <input class="od-input od-input-muted" value="${escapeHtml(it.storeLink||'')}" placeholder="${escapeHtml(window.t?window.t('storeLinkPh'):'Link')}" onchange="window.updateOrderItem(${idx},'storeLink',this.value)" />
+                ${storeHTML}
                 ${sizesHTML}
               </div>
               <button onclick="window.removeOrderItem(${idx})" class="od-item-remove" title="Remove">
