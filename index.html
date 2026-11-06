@@ -2679,6 +2679,9 @@ service cloud.firestore {
         <input id="od-name" type="text" placeholder="Order name" data-i18n-ph="orderNamePh"
           style="font-weight:800;font-size:0.95rem;border:none;background:transparent;text-align:center;flex:1;min-width:0;"
           onchange="window.saveOrderField('name', this.value)" />
+        <button onclick="window.exportOrderPDF()" title="Export PDF" style="width:32px;height:32px;border-radius:10px;background:#fee2e2;color:#dc2626;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:0.65rem;font-weight:800;">PDF</button>
+        <button onclick="window.exportOrderExcel()" title="Export Excel" style="width:32px;height:32px;border-radius:10px;background:#dcfce7;color:#16a34a;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:0.65rem;font-weight:800;">XLS</button>
+        <button onclick="window.exportOrderPNG()" title="Export Image" style="width:32px;height:32px;border-radius:10px;background:#dbeafe;color:#2563eb;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:0.6rem;font-weight:800;">PNG</button>
         <button onclick="window.deleteCurrentOrder()" style="width:32px;height:32px;border-radius:10px;background:#fee2e2;color:#ef4444;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
         </button>
@@ -9973,6 +9976,173 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
     }
 
     function orderMoney(n) { return (Math.round((n||0)*100)/100).toLocaleString('en-US'); }
+
+    // ── Order export (PDF / Excel / PNG) — one shared bordered table (photo, code, store,
+    // unit price ¥/$, sizes, quantity, real cost IQD + a totals row) mirroring the kind of
+    // invoice sheet the user already gets from suppliers, so this can be sent/printed the
+    // same way. PDF and PNG both rasterize the same HTML table via html2canvas so they're
+    // pixel-identical; Excel is built as real cells (not a picture) via ExcelJS so the
+    // numbers stay usable/filterable, with each row's photo embedded as an actual image.
+    async function _loadExportLib(src, globalCheck) {
+      if (globalCheck()) return;
+      await new Promise((res, rej) => {
+        const s = document.createElement('script');
+        s.src = src; s.onload = res; s.onerror = rej;
+        document.head.appendChild(s);
+      });
+    }
+
+    function _orderExportRows(o) {
+      const cnyRate = parseFloat(o.cnyRate) || 0;
+      const iqdRate = parseFloat(o.usdToIqdRate) || 0;
+      const shipPerPiece = orderShipPerPiece(o);
+      let totalQty = 0, totalRealIqd = 0;
+      const rows = (o.items || []).map(it => {
+        const unitCny = parseFloat(it.unitPriceCny) || 0;
+        const qty = parseInt(it.quantity) || 0;
+        const unitUsd = cnyRate > 0 ? unitCny / cnyRate : 0;
+        const realCostIqd = iqdRate > 0 ? (unitUsd * qty + shipPerPiece * qty) * iqdRate : 0;
+        totalQty += qty; totalRealIqd += realCostIqd;
+        return { it, unitCny, unitUsd, qty, realCostIqd };
+      });
+      return { rows, totalQty, totalRealIqd };
+    }
+
+    function _buildOrderExportTableEl(o) {
+      const { rows, totalQty, totalRealIqd } = _orderExportRows(o);
+      const wrap = document.createElement('div');
+      wrap.style.cssText = 'position:fixed;left:-99999px;top:0;background:#fff;padding:16px;width:900px;font-family:Arial,sans-serif;';
+      const th = 'padding:8px 6px;background:#e4e1fb;font-weight:800;border:1px solid #333;font-size:13px;text-align:center;';
+      const td = 'padding:6px;border:1px solid #333;font-size:12px;text-align:center;vertical-align:middle;';
+      const rowsHtml = rows.map(({ it, unitCny, unitUsd, qty, realCostIqd }) => `
+        <tr>
+          <td style="${td}">${it.imageUrl ? `<img src="${escapeHtml(optimizedCloudinaryUrl(it.imageUrl,'200x200'))}" crossorigin="anonymous" style="width:80px;height:80px;object-fit:cover;border-radius:6px;" />` : ''}</td>
+          <td style="${td}font-weight:700;">${escapeHtml(it.code || '')}</td>
+          <td style="${td}">${escapeHtml(it.storePlatform || '')}</td>
+          <td style="${td}">¥${orderMoney(unitCny)}</td>
+          <td style="${td}">$${orderMoney(unitUsd)}</td>
+          <td style="${td}">${(it.sizes || []).join('<br>')}</td>
+          <td style="${td}font-weight:800;font-size:15px;">${qty}</td>
+          <td style="${td}font-weight:800;">${orderMoney(realCostIqd)} IQD</td>
+        </tr>`).join('');
+      wrap.innerHTML = `
+        <div style="text-align:center;font-weight:900;font-size:20px;margin-bottom:4px;">${escapeHtml(o.name || 'Order')}</div>
+        <div style="text-align:center;font-size:12px;color:#666;margin-bottom:12px;">${escapeHtml(o.purchaseDate || '')}</div>
+        <table style="width:100%;border-collapse:collapse;">
+          <thead><tr>
+            <th style="${th}">Picture</th><th style="${th}">Code</th><th style="${th}">Store</th>
+            <th style="${th}">Unit Price ¥</th><th style="${th}">Unit Price $</th><th style="${th}">Sizes</th>
+            <th style="${th}">Quantity</th><th style="${th}">Real Cost (IQD)</th>
+          </tr></thead>
+          <tbody>${rowsHtml}
+            <tr><td style="${td}font-weight:900;" colspan="6">TOTAL</td><td style="${td}font-weight:900;font-size:15px;">${totalQty}</td><td style="${td}font-weight:900;">${orderMoney(totalRealIqd)} IQD</td></tr>
+          </tbody>
+        </table>`;
+      document.body.appendChild(wrap);
+      return wrap;
+    }
+
+    async function _rasterizeOrderTable(o) {
+      await _loadExportLib('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js', () => window.html2canvas);
+      const el = _buildOrderExportTableEl(o);
+      await new Promise(r => setTimeout(r, 400)); // let <img> tags actually load before rasterizing
+      const canvas = await window.html2canvas(el, { backgroundColor: '#ffffff', scale: 2, useCORS: true });
+      el.remove();
+      return canvas;
+    }
+
+    window.exportOrderPNG = async function() {
+      if (!currentOrder) return;
+      showToast('Generating image…', 'info');
+      try {
+        const canvas = await _rasterizeOrderTable(currentOrder);
+        const blob = await new Promise(res => canvas.toBlob(res, 'image/png'));
+        const name = buildDownloadFilename(currentOrder.name || 'order', 'png');
+        const savedNatively = await window.saveBlobToDevice(blob, name, false);
+        if (!savedNatively) { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; a.click(); URL.revokeObjectURL(a.href); }
+        showToast('Image downloaded ✓', 'success');
+      } catch (e) { console.error(e); showToast('Export failed', 'error'); }
+    };
+
+    window.exportOrderPDF = async function() {
+      if (!currentOrder) return;
+      showToast('Generating PDF…', 'info');
+      try {
+        const canvas = await _rasterizeOrderTable(currentOrder);
+        await _loadExportLib('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js', () => window.jspdf);
+        const { jsPDF } = window.jspdf;
+        const imgData = canvas.toDataURL('image/jpeg', 0.95);
+        const imgWmm = 190; // A4 portrait usable width at 10mm margins
+        const pxToMm = canvas.width / imgWmm;
+        const imgHmm = canvas.height / pxToMm;
+        const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+        const pageH = doc.internal.pageSize.getHeight() - 20;
+        let heightLeft = imgHmm, position = 10;
+        doc.addImage(imgData, 'JPEG', 10, position, imgWmm, imgHmm);
+        heightLeft -= pageH;
+        while (heightLeft > 0) {
+          position = heightLeft - imgHmm + 10;
+          doc.addPage();
+          doc.addImage(imgData, 'JPEG', 10, position, imgWmm, imgHmm);
+          heightLeft -= pageH;
+        }
+        const name = buildDownloadFilename(currentOrder.name || 'order', 'pdf');
+        const savedNatively = await window.saveBlobToDevice(doc.output('blob'), name, false);
+        if (!savedNatively) doc.save(name);
+        showToast('PDF downloaded ✓', 'success');
+      } catch (e) { console.error(e); showToast('Export failed', 'error'); }
+    };
+
+    window.exportOrderExcel = async function() {
+      if (!currentOrder) return;
+      showToast('Generating Excel…', 'info');
+      try {
+        await _loadExportLib('https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js', () => window.ExcelJS);
+        const wb = new window.ExcelJS.Workbook();
+        const ws = wb.addWorksheet((currentOrder.name || 'Order').slice(0, 31));
+        ws.columns = [
+          { header: 'Picture', key: 'pic', width: 14 },
+          { header: 'Code', key: 'code', width: 12 },
+          { header: 'Store', key: 'store', width: 16 },
+          { header: 'Link', key: 'link', width: 24 },
+          { header: 'Unit Price ¥', key: 'cny', width: 12 },
+          { header: 'Unit Price $', key: 'usd', width: 12 },
+          { header: 'Sizes', key: 'sizes', width: 18 },
+          { header: 'Quantity', key: 'qty', width: 10 },
+          { header: 'Real Cost (IQD)', key: 'iqd', width: 16 },
+        ];
+        const headerRow = ws.getRow(1);
+        headerRow.font = { bold: true };
+        headerRow.eachCell(c => { c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE4E1FB' } }; c.alignment = { horizontal: 'center', vertical: 'middle' }; });
+
+        const { rows, totalQty, totalRealIqd } = _orderExportRows(currentOrder);
+        let rIdx = 2;
+        for (const { it, unitCny, unitUsd, qty, realCostIqd } of rows) {
+          const row = ws.addRow({ pic: '', code: it.code || '', store: it.storePlatform || '', link: it.storeLink || '', cny: unitCny, usd: Math.round(unitUsd * 100) / 100, sizes: (it.sizes || []).join(', '), qty, iqd: Math.round(realCostIqd) });
+          row.height = 60;
+          row.eachCell(c => { c.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true }; });
+          if (it.imageUrl) {
+            try {
+              const resp = await fetch(optimizedCloudinaryUrl(it.imageUrl, '200x200'));
+              const buf = await resp.arrayBuffer();
+              const ext = /\.png($|\?)/i.test(it.imageUrl) ? 'png' : 'jpeg';
+              const imgId = wb.addImage({ buffer: buf, extension: ext });
+              ws.addImage(imgId, { tl: { col: 0, row: rIdx - 1 }, ext: { width: 70, height: 70 } });
+            } catch (e) { console.error('excel image embed failed', e); }
+          }
+          rIdx++;
+        }
+        const totalRow = ws.addRow({ code: 'TOTAL', qty: totalQty, iqd: Math.round(totalRealIqd) });
+        totalRow.font = { bold: true };
+
+        const buf = await wb.xlsx.writeBuffer();
+        const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+        const name = buildDownloadFilename(currentOrder.name || 'order', 'xlsx');
+        const savedNatively = await window.saveBlobToDevice(blob, name, false);
+        if (!savedNatively) { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; a.click(); URL.revokeObjectURL(a.href); }
+        showToast('Excel downloaded ✓', 'success');
+      } catch (e) { console.error(e); showToast('Export failed', 'error'); }
+    };
 
     function renderOrderRows() {
       const o = currentOrder;
