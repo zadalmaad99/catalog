@@ -328,6 +328,9 @@
     }
     .od-stat-label { font-size: 0.6rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.03em; opacity: 0.65; }
     .od-stat-value { font-size: 1.1rem; font-weight: 900; }
+    /* The decimal part of any order money amount (".54" in "84,917.54") — smaller than the
+       whole-number part so it's still obviously "cents", without taking equal visual weight. */
+    .od-money-dec { font-size: 0.68em; font-weight: 700; }
     .od-stat-blue  { background: linear-gradient(135deg,#eff6ff,#dbeafe); color: #1d4ed8; }
     .od-stat-amber { background: linear-gradient(135deg,#fffbeb,#fef3c7); color: #b45309; }
     .od-stat-green { background: linear-gradient(135deg,#f0fdf4,#dcfce7); color: #15803d; }
@@ -4387,14 +4390,14 @@ service cloud.firestore {
         shippingMode: 'طريقة النقل', shippingNone: '—', shippingSea: 'بحري', shippingAir: 'جوي', shippingLand: 'بري',
         shippingPerPiece: 'سعر النقل لكل قطعة ($)', shippingTotal: 'إجمالي سعر النقل',
         shippingHint: 'يُقسَّم على كل القطع بنسبة كميتها، ويُضاف لتكلفة كل موديل الحقيقية بالدينار.',
-        colPicture: 'الصورة', colStore: 'المتجر / المنصة', colUnitCny: 'سعر القطعة ¥', colUnitUsd: '≈ $',
+        colPicture: 'الصورة', colStore: 'المنصة', colUnitCny: 'سعر القطعة ¥', colUnitUsd: '≈ $',
         colSizes: 'المقاسات', colQty: 'الكمية', colShipPc: 'نقل/قطعة $', colRealCost: 'التكلفة الحقيقية (دينار)',
         addItem: '+ إضافة صنف', receivedHint: 'مؤشَّر عليه كمُستلَم — أضفه للكاتالوج كمجلد.', addToFolders: 'إضافة إلى الفولدرات',
         total: 'المجموع', ordReceived: 'مُستلَم', ordPending: 'بالطريق',
         noItemsYet: 'ما فيه أصناف بعد — أضف وحدة بالأسفل.', storePlatformPh: '1688 / Taobao…', storeLinkPh: 'رابط',
         sizesPh: '90,100,110 أو from 90 to 110',
         editLinkPrompt: 'تعديل الرابط (اتركه فارغاً للحذف):',
-        colCode: 'الكود (مثلاً S304)', addItemsFromPhotos: '+ إضافة ألوان مختلفة', choosePlatform: 'اختر المنصة',
+        addItemsFromPhotos: '+ إضافة ألوان مختلفة', choosePlatform: 'اختر المنصة',
         excludedBadge: 'غير مشمولة',
         cancel: 'إلغاء',
         ok: 'تأكيد',
@@ -4555,14 +4558,14 @@ service cloud.firestore {
         shippingMode: 'شێوازی گواستنەوە', shippingNone: '—', shippingSea: 'دەریایی', shippingAir: 'ئاسمانی', shippingLand: 'وشکانی',
         shippingPerPiece: 'نرخی گواستنەوە بۆ هەر دانەیەک ($)', shippingTotal: 'کۆی نرخی گواستنەوە',
         shippingHint: 'بەسەر هەموو دانەکاندا دابەش دەکرێت بەگوێرەی ژمارەیان، و زیاد دەکرێت بۆ تێچووی ڕاستەقینەی هەر مۆدێلێک بە دینار.',
-        colPicture: 'وێنە', colStore: 'فرۆشگا / پلاتفۆرم', colUnitCny: 'نرخی دانە ¥', colUnitUsd: '≈ $',
+        colPicture: 'وێنە', colStore: 'پلاتفۆرم', colUnitCny: 'نرخی دانە ¥', colUnitUsd: '≈ $',
         colSizes: 'قەبارەکان', colQty: 'ژمارە', colShipPc: 'گواستنەوە/دانە $', colRealCost: 'تێچووی ڕاستەقینە (دینار)',
         addItem: '+ زیادکردنی بابەت', receivedHint: 'وەک وەرگیراو نیشانە کراوە — زیادی بکە بۆ کاتالۆگ وەک فۆڵدەر.', addToFolders: 'زیادکردن بۆ فۆڵدەرەکان',
         total: 'کۆی گشتی', ordReceived: 'وەرگیراو', ordPending: 'لە ڕێگادایە',
         noItemsYet: 'هیچ بابەتێک نییە — یەکێک زیاد بکە لە خوارەوە.', storePlatformPh: '1688 / Taobao…', storeLinkPh: 'لینک',
         sizesPh: '90,100,110 یان from 90 to 110',
         editLinkPrompt: 'دەستکاری لینک بکە (بەتاڵی بهێڵەوە بۆ سڕینەوە):',
-        colCode: 'کۆد (نموونە S304)', addItemsFromPhotos: '+ زیادکردنی ڕەنگی جیاواز', choosePlatform: 'پلاتفۆرم هەڵبژێرە',
+        addItemsFromPhotos: '+ زیادکردنی ڕەنگی جیاواز', choosePlatform: 'پلاتفۆرم هەڵبژێرە',
         excludedBadge: 'بێ داشکاندن',
         cancel: 'پاشگەزبوونەوە',
         ok: 'باشە',
@@ -4723,14 +4726,14 @@ service cloud.firestore {
         shippingMode: 'Shipping Mode', shippingNone: '—', shippingSea: 'Sea', shippingAir: 'Air', shippingLand: 'Land',
         shippingPerPiece: 'Shipping per piece ($)', shippingTotal: 'Total Shipping Cost',
         shippingHint: "Split across every piece by quantity, then added to each item's real cost, shown in IQD.",
-        colPicture: 'Picture', colStore: 'Store / Platform', colUnitCny: 'Unit Price ¥', colUnitUsd: '≈ $',
+        colPicture: 'Picture', colStore: 'Platform', colUnitCny: 'Unit Price ¥', colUnitUsd: '≈ $',
         colSizes: 'Sizes', colQty: 'Qty', colShipPc: 'Ship/pc $', colRealCost: 'Real Cost IQD',
         addItem: '+ Add Item', receivedHint: 'Marked as received — add it to the Catalog as a folder.', addToFolders: 'Add to Folders',
         total: 'Total', ordReceived: 'Received', ordPending: 'Pending',
         noItemsYet: 'No items yet — add one below.', storePlatformPh: '1688 / Taobao…', storeLinkPh: 'Link',
         sizesPh: '90,100,110 or from 90 to 110',
         editLinkPrompt: 'Edit link (leave empty to remove):',
-        colCode: 'Code (e.g. S304)', addItemsFromPhotos: '+ Add Color Variants', choosePlatform: 'Choose platform',
+        addItemsFromPhotos: '+ Add Color Variants', choosePlatform: 'Choose platform',
         excludedBadge: 'Excluded',
         cancel: 'Cancel',
         ok: 'OK',
@@ -10022,7 +10025,7 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
           </p>
           <div class="order-card-footer">
             <span>${window.t?window.t('total'):'Total'}</span>
-            <strong>${orderMoney(t.totalRealIqd)} <small>IQD</small></strong>
+            <strong>${orderMoneyHtml(t.totalRealIqd)} <small>IQD</small></strong>
           </div>
         </div>`;
     }
@@ -10069,6 +10072,40 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
     }
 
     function orderMoney(n) { return (Math.round((n||0)*100)/100).toLocaleString('en-US'); }
+
+    // Same number, but with the decimal part wrapped in a smaller span — so it's still visibly
+    // "this is cents" at a glance instead of blending into the whole number, without shrinking
+    // the number that actually matters for reading it quickly. Purely a display wrapper: the
+    // underlying value (and anything summed from it) is untouched.
+    function orderMoneyHtml(n) {
+      const s = orderMoney(n);
+      const dot = s.indexOf('.');
+      if (dot === -1) return escapeHtml(s);
+      return `${escapeHtml(s.slice(0, dot))}<span class="od-money-dec">${escapeHtml(s.slice(dot))}</span>`;
+    }
+
+    // Canvas equivalent for the PDF/PNG export — draws the integer part at the normal font size
+    // and the decimal part at a smaller one, centered as a single block, so the exported image
+    // reads the same way as the on-screen amounts.
+    function _drawMoneyCentered(ctx, prefix, amount, cx, cy, mainFont, decFont, color) {
+      const s = orderMoney(amount);
+      const dot = s.indexOf('.');
+      const mainText = prefix + (dot === -1 ? s : s.slice(0, dot));
+      const decText = dot === -1 ? '' : s.slice(dot);
+      ctx.font = mainFont;
+      const mainW = ctx.measureText(mainText).width;
+      ctx.font = decFont;
+      const decW = decText ? ctx.measureText(decText).width : 0;
+      const prevAlign = ctx.textAlign;
+      ctx.textAlign = 'left';
+      ctx.fillStyle = color;
+      let x = cx - (mainW + decW) / 2;
+      ctx.font = mainFont;
+      ctx.fillText(mainText, x, cy);
+      x += mainW;
+      if (decText) { ctx.font = decFont; ctx.fillText(decText, x, cy); }
+      ctx.textAlign = prevAlign;
+    }
 
     // ── Order export (PDF / Excel / PNG) — one shared bordered table (photo, code, store,
     // unit price ¥/$, sizes, quantity, real cost IQD + a totals row) mirroring the kind of
@@ -10247,9 +10284,9 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
           lines.forEach((ln, li) => ctx.fillText(ln, x + w / 2, startY + li * lineH));
         },
         qty: (x, w, rowTop, d) => { ctx.font = '800 16px Arial, sans-serif'; ctx.fillStyle = '#111'; ctx.textAlign = 'center'; ctx.fillText(String(d.qty), x + w / 2, rowTop + rowH / 2); },
-        cny: (x, w, rowTop, d) => { ctx.font = '13px Arial, sans-serif'; ctx.fillStyle = '#111'; ctx.textAlign = 'center'; ctx.fillText('¥' + orderMoney(d.unitCny), x + w / 2, rowTop + rowH / 2); },
-        usd: (x, w, rowTop, d) => { ctx.font = '13px Arial, sans-serif'; ctx.fillStyle = '#111'; ctx.textAlign = 'center'; ctx.fillText('$' + orderMoney(d.unitUsd), x + w / 2, rowTop + rowH / 2); },
-        iqd: (x, w, rowTop, d) => { ctx.font = '800 13px Arial, sans-serif'; ctx.fillStyle = '#111'; ctx.textAlign = 'center'; ctx.fillText(orderMoney(d.realCostIqd), x + w / 2, rowTop + rowH / 2); },
+        cny: (x, w, rowTop, d) => { _drawMoneyCentered(ctx, '¥', d.unitCny, x + w / 2, rowTop + rowH / 2, '13px Arial, sans-serif', '10px Arial, sans-serif', '#111'); },
+        usd: (x, w, rowTop, d) => { _drawMoneyCentered(ctx, '$', d.unitUsd, x + w / 2, rowTop + rowH / 2, '13px Arial, sans-serif', '10px Arial, sans-serif', '#111'); },
+        iqd: (x, w, rowTop, d) => { _drawMoneyCentered(ctx, '', d.realCostIqd, x + w / 2, rowTop + rowH / 2, '800 13px Arial, sans-serif', '800 10px Arial, sans-serif', '#111'); },
       };
 
       rows.forEach((d, i) => {
@@ -10276,11 +10313,10 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
       ctx.fillText('TOTAL', pad + 12, y + totalRowH / 2);
       ctx.textAlign = 'center';
       for (const c of totalBearing) {
-        ctx.font = '900 13px Arial, sans-serif';
         if (c.key === 'qty') { ctx.fillStyle = '#111'; ctx.font = '900 16px Arial, sans-serif'; ctx.fillText(String(totalQty), colX[c.key] + c.w / 2, y + totalRowH / 2); }
-        if (c.key === 'cny') { ctx.fillStyle = '#111'; ctx.fillText('¥' + orderMoney(totalCny), colX[c.key] + c.w / 2, y + totalRowH / 2); }
-        if (c.key === 'usd') { ctx.fillStyle = '#111'; ctx.fillText('$' + orderMoney(totalUsd), colX[c.key] + c.w / 2, y + totalRowH / 2); }
-        if (c.key === 'iqd') { ctx.fillStyle = '#e85d3a'; ctx.fillText(orderMoney(totalRealIqd), colX[c.key] + c.w / 2, y + totalRowH / 2); }
+        if (c.key === 'cny') { _drawMoneyCentered(ctx, '¥', totalCny, colX[c.key] + c.w / 2, y + totalRowH / 2, '900 13px Arial, sans-serif', '900 10px Arial, sans-serif', '#111'); }
+        if (c.key === 'usd') { _drawMoneyCentered(ctx, '$', totalUsd, colX[c.key] + c.w / 2, y + totalRowH / 2, '900 13px Arial, sans-serif', '900 10px Arial, sans-serif', '#111'); }
+        if (c.key === 'iqd') { _drawMoneyCentered(ctx, '', totalRealIqd, colX[c.key] + c.w / 2, y + totalRowH / 2, '900 13px Arial, sans-serif', '900 10px Arial, sans-serif', '#e85d3a'); }
       }
 
       return canvas;
@@ -10627,7 +10663,7 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
               </div>
               <div class="od-strip-field" style="width:70px;">
                 <span class="od-item-field-label">${escapeHtml(window.t?window.t('colUnitUsd'):'≈ $')}</span>
-                <span class="od-item-static">$${orderMoney(unitUsd)}</span>
+                <span class="od-item-static">$${orderMoneyHtml(unitUsd)}</span>
               </div>
               <div class="od-strip-field" style="width:64px;">
                 <span class="od-item-field-label">${escapeHtml(window.t?window.t('colQty'):'Qty')}</span>
@@ -10646,7 +10682,7 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
               </div>
               <div class="od-strip-field od-strip-field-shrink">
                 <span class="od-item-field-label" style="text-align:left;">${escapeHtml(window.t?window.t('colRealCost'):'Real Cost IQD')}</span>
-                <strong class="od-strip-cost">${orderMoney(realCostIqd)} <small>IQD</small></strong>
+                <strong class="od-strip-cost">${orderMoneyHtml(realCostIqd)} <small>IQD</small></strong>
               </div>
               <button onclick="window.removeOrderItem(${idx})" class="od-item-remove od-strip-field-shrink" title="Remove">
                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
@@ -10664,15 +10700,15 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
         </div>
         <div class="od-stat-tile od-stat-amber">
           <span class="od-stat-label">${t('colUnitCny','¥')}</span>
-          <span class="od-stat-value">¥${orderMoney(totalCny)}</span>
+          <span class="od-stat-value">¥${orderMoneyHtml(totalCny)}</span>
         </div>
         <div class="od-stat-tile od-stat-green">
           <span class="od-stat-label">$</span>
-          <span class="od-stat-value">$${orderMoney(totalUsd + totalShipUsd)}</span>
+          <span class="od-stat-value">$${orderMoneyHtml(totalUsd + totalShipUsd)}</span>
         </div>
         <div class="od-stat-tile od-stat-dark">
           <span class="od-stat-label">${t('total','Total')} (IQD)</span>
-          <span class="od-stat-value">${orderMoney(totalRealIqd)}</span>
+          <span class="od-stat-value">${orderMoneyHtml(totalRealIqd)}</span>
         </div>`;
     }
 
