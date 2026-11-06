@@ -10156,8 +10156,14 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
       return canvas;
     }
 
+    // Guards against a fast double-tap on a small export button firing the handler twice and
+    // producing two downloaded files for one tap — the buttons give no visual "busy" feedback
+    // of their own, so nothing else stops a second tap landing before the first export finishes.
+    let _orderExportBusy = false;
+
     window.exportOrderPNG = async function() {
-      if (!currentOrder) return;
+      if (!currentOrder || _orderExportBusy) return;
+      _orderExportBusy = true;
       showToast('Generating image…', 'info');
       try {
         const canvas = await _buildOrderExportCanvas(currentOrder);
@@ -10167,10 +10173,12 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
         if (!savedNatively) { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; a.click(); URL.revokeObjectURL(a.href); }
         showToast('Image downloaded ✓', 'success');
       } catch (e) { console.error(e); showToast('Export failed: ' + (e && e.message || e), 'error'); }
+      finally { _orderExportBusy = false; }
     };
 
     window.exportOrderPDF = async function() {
-      if (!currentOrder) return;
+      if (!currentOrder || _orderExportBusy) return;
+      _orderExportBusy = true;
       showToast('Generating PDF…', 'info');
       try {
         const canvas = await _buildOrderExportCanvas(currentOrder);
@@ -10196,6 +10204,7 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
         if (!savedNatively) doc.save(name);
         showToast('PDF downloaded ✓', 'success');
       } catch (e) { console.error(e); showToast('Export failed: ' + (e && e.message || e), 'error'); }
+      finally { _orderExportBusy = false; }
     };
 
     // Renders one of the app's own platform icons (stored as inline SVG data-URIs, which
@@ -10211,7 +10220,8 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
     }
 
     window.exportOrderExcel = async function() {
-      if (!currentOrder) return;
+      if (!currentOrder || _orderExportBusy) return;
+      _orderExportBusy = true;
       showToast('Generating Excel…', 'info');
       try {
         await _loadExportLib('https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js', () => window.ExcelJS);
@@ -10248,14 +10258,16 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
           row.getCell('cny').numFmt = '"¥"#,##0.00';
           row.getCell('usd').numFmt = '"$"#,##0.00';
           row.getCell('iqd').numFmt = '#,##0 "IQD"';
-          // Store/Link cell: platform icon pinned near the top, platform name + link text
-          // anchored to the bottom of the same (tall) cell — i.e. the link sits under the
-          // platform picture, inside one cell, instead of a separate column.
+          // Store/Link cell: platform icon pinned near the top (col offset computed from the
+          // column's actual character width, not a guess — the earlier fixed 0.9 offset pushed
+          // the icon outside the visible cell on a 26-char-wide column), with the platform NAME
+          // as a short clickable link at the bottom — not the raw URL, which just read as ugly
+          // wall-of-text; the whole name is the link, so it's just as clickable either way.
           const storeCell = row.getCell('store');
           storeCell.alignment = { horizontal: 'center', vertical: 'bottom', wrapText: true };
           if (it.storeLink) {
-            storeCell.value = { text: `${it.storePlatform || ''}\n${it.storeLink}`, hyperlink: it.storeLink };
-            storeCell.font = { color: { argb: 'FF2563EB' }, underline: true, size: 9 };
+            storeCell.value = { text: it.storePlatform || 'Link', hyperlink: it.storeLink };
+            storeCell.font = { color: { argb: 'FF2563EB' }, underline: true, size: 10, bold: true };
           } else if (it.storePlatform) {
             storeCell.value = it.storePlatform;
             storeCell.font = { size: 10, bold: true };
@@ -10272,7 +10284,10 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
           const iconBuf = await _platformIconPngBuffer(it.storePlatform);
           if (iconBuf) {
             const iconId = wb.addImage({ buffer: iconBuf, extension: 'png' });
-            ws.addImage(iconId, { tl: { col: storeColIdx + 0.9, row: rIdx - 1 + 0.08 }, ext: { width: 24, height: 24 } });
+            // Excel column width is in characters (~7px each); center a 24px icon within that.
+            const storeColPx = ws.getColumn('store').width * 7;
+            const iconColOffset = Math.max(0, (storeColPx - 24) / 2) / storeColPx;
+            ws.addImage(iconId, { tl: { col: storeColIdx + iconColOffset, row: rIdx - 1 + 0.08 }, ext: { width: 24, height: 24 } });
           }
           rIdx++;
         }
@@ -10300,6 +10315,7 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
         if (!savedNatively) { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; a.click(); URL.revokeObjectURL(a.href); }
         showToast('Excel downloaded ✓', 'success');
       } catch (e) { console.error(e); showToast('Export failed: ' + (e && e.message || e), 'error'); }
+      finally { _orderExportBusy = false; }
     };
 
     function renderOrderRows() {
