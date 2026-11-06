@@ -48,6 +48,24 @@
     #selection-bar.hidden { display: none; }
     #selection-bar:not(.hidden) { display: flex; }
     #selection-bar > * { flex-shrink: 0; }
+
+    #app-bottom-tabs {
+      position: fixed; left: 0; right: 0; bottom: 0; z-index: 140;
+      background: #fff; border-top: 1px solid #f1e4da;
+      box-shadow: 0 -4px 16px rgba(0,0,0,0.06);
+      padding: 6px max(10px, env(safe-area-inset-left)) calc(6px + env(safe-area-inset-bottom));
+      display: flex; gap: 6px;
+    }
+    #app-bottom-tabs.hidden { display: none; }
+    #app-bottom-tabs button {
+      flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px;
+      padding: 6px 4px; border: none; background: transparent; border-radius: 12px;
+      color: #9ca3af; font-size: 0.68rem; font-weight: 700; cursor: pointer; transition: all 0.15s;
+    }
+    #app-bottom-tabs button.active { color: #e85d3a; background: #fff1ea; }
+    /* The bottom tab bar only ever shows over these two top-level views — reserve room so its
+       last row of content isn't hidden underneath it. */
+    #folders-view, #orders-view { padding-bottom: 64px; }
   </style>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -2418,6 +2436,107 @@ service cloud.firestore {
       </div>
     </div>
 
+    <!-- ═══════════════ ORDERS VIEW (Purchase/Import Orders) — admin-only procurement tracker:
+         one "order" per shipment batch, each with its own line-item table, multi-currency math
+         (¥ purchase price → $ → IQD selling cost), and shipping cost. Reachable only from the
+         Catalog/Orders bottom tab bar. ═══════════════ -->
+    <div id="orders-view" class="hidden">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-lg font-black text-gray-800 flex items-center gap-2">📦 <span data-i18n="ordersTitle">Purchase Orders</span></h2>
+        <button onclick="window.createNewOrder()" class="h-9 px-4 rounded-xl bg-[#e85d3a] text-white text-sm font-bold flex items-center gap-1.5">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
+          <span data-i18n="newOrder">New Order</span>
+        </button>
+      </div>
+      <div id="orders-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3"></div>
+      <div id="orders-empty" class="hidden flex-col items-center justify-center py-24 text-center">
+        <div class="w-20 h-20 rounded-full bg-orange-50 flex items-center justify-center mb-5 text-3xl">📦</div>
+        <p class="text-lg font-bold text-gray-700 mb-1" data-i18n="noOrdersTitle">No purchase orders yet</p>
+        <p class="text-sm text-gray-400" data-i18n="noOrdersDesc">Create one to start tracking a shipment</p>
+      </div>
+    </div>
+
+    <!-- ═══════════════ ORDER DETAIL VIEW ═══════════════ -->
+    <div id="order-detail-view" class="hidden">
+      <div class="breadcrumb-bar mb-3" style="display:flex;align-items:center;gap:10px;">
+        <span class="bc-home" onclick="window.showOrdersView()" style="flex-shrink:0;">
+          <svg class="w-4 h-4 inline -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+          <span data-i18n="ordersTitle">Purchase Orders</span>
+        </span>
+        <input id="od-name" type="text" placeholder="Order name" data-i18n-ph="orderNamePh"
+          style="font-weight:800;font-size:0.95rem;border:none;background:transparent;text-align:center;flex:1;min-width:0;"
+          onchange="window.saveOrderField('name', this.value)" />
+        <button onclick="window.deleteCurrentOrder()" style="width:32px;height:32px;border-radius:10px;background:#fee2e2;color:#ef4444;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+        </button>
+      </div>
+
+      <!-- Dates + exchange rates — these drive every money column in the table below -->
+      <div class="bg-gray-50 rounded-xl p-3 mb-3 grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs font-bold text-gray-600 mb-1" data-i18n="purchaseDate">Purchase Date</label>
+          <input id="od-purchase-date" type="date" class="w-full h-9 px-2 rounded-lg border border-gray-200 bg-white text-sm" onchange="window.saveOrderField('purchaseDate', this.value)" />
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-gray-600 mb-1" data-i18n="receiveDate">Receive Date</label>
+          <input id="od-receive-date" type="date" class="w-full h-9 px-2 rounded-lg border border-gray-200 bg-white text-sm" onchange="window.saveOrderField('receiveDate', this.value)" />
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-gray-600 mb-1" data-i18n="cnyRate">¥ per $1 (CNY/USD)</label>
+          <input id="od-cny-rate" type="number" step="0.01" min="0" class="w-full h-9 px-2 rounded-lg border border-gray-200 bg-white text-sm" onchange="window.saveOrderField('cnyRate', parseFloat(this.value)||0)" />
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-gray-600 mb-1" data-i18n="iqdRate">IQD per $1</label>
+          <input id="od-iqd-rate" type="number" step="1" min="0" class="w-full h-9 px-2 rounded-lg border border-gray-200 bg-white text-sm" onchange="window.saveOrderField('usdToIqdRate', parseFloat(this.value)||0)" />
+        </div>
+      </div>
+
+      <!-- Shipping — a per-piece $ amount that the table folds into each row's Real Cost (IQD) -->
+      <div class="bg-orange-50 border border-orange-100 rounded-xl p-3 mb-3 flex items-end gap-3 flex-wrap">
+        <div>
+          <label class="block text-xs font-bold text-gray-600 mb-1" data-i18n="shippingMode">Shipping Mode</label>
+          <select id="od-shipping-mode" class="h-9 px-2 rounded-lg border border-gray-200 bg-white text-sm" onchange="window.saveOrderField('shippingMode', this.value)">
+            <option value="" data-i18n="shippingNone">—</option>
+            <option value="sea" data-i18n="shippingSea">Sea</option>
+            <option value="air" data-i18n="shippingAir">Air</option>
+            <option value="land" data-i18n="shippingLand">Land</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-gray-600 mb-1" data-i18n="shippingPerPiece">Shipping per piece ($)</label>
+          <input id="od-shipping-price" type="number" step="0.01" min="0" class="h-9 px-2 rounded-lg border border-gray-200 bg-white text-sm w-28" onchange="window.saveOrderShippingPrice(this.value)" />
+        </div>
+        <p class="text-xs text-gray-400 flex-1" style="min-width:200px;" data-i18n="shippingHint">Added to each item's real cost, shown in IQD, in its own column.</p>
+      </div>
+
+      <!-- Line items -->
+      <div style="overflow-x:auto;">
+        <table id="od-table" style="width:100%;border-collapse:collapse;font-size:0.78rem;min-width:820px;">
+          <thead>
+            <tr style="text-align:center;color:#9ca3af;font-size:0.65rem;font-weight:800;text-transform:uppercase;">
+              <th style="padding:6px;" data-i18n="colPicture">Picture</th>
+              <th style="padding:6px;" data-i18n="colStore">Store / Platform</th>
+              <th style="padding:6px;" data-i18n="colUnitCny">Unit Price ¥</th>
+              <th style="padding:6px;" data-i18n="colUnitUsd">≈ $</th>
+              <th style="padding:6px;" data-i18n="colSizes">Sizes</th>
+              <th style="padding:6px;" data-i18n="colQty">Qty</th>
+              <th style="padding:6px;" data-i18n="colShipPc">Ship/pc $</th>
+              <th style="padding:6px;" data-i18n="colRealCost">Real Cost IQD</th>
+              <th style="padding:6px;"></th>
+            </tr>
+          </thead>
+          <tbody id="od-rows"></tbody>
+          <tfoot id="od-totals"></tfoot>
+        </table>
+      </div>
+      <button onclick="window.addOrderItem()" class="mt-3 h-10 px-4 rounded-xl border-2 border-dashed border-gray-200 text-gray-500 text-sm font-bold w-full" data-i18n="addItem">+ Add Item</button>
+
+      <div id="od-receive-actions" class="hidden mt-4 bg-green-50 border border-green-100 rounded-xl p-3 flex items-center justify-between flex-wrap gap-2">
+        <p class="text-xs text-green-700 font-semibold" data-i18n="receivedHint">Marked as received — add it to the Catalog as a folder.</p>
+        <button onclick="window.convertOrderToFolder()" class="h-9 px-4 rounded-xl bg-green-600 text-white text-sm font-bold" data-i18n="addToFolders">Add to Folders</button>
+      </div>
+    </div>
+
     <!-- ═══════════════ TRASH VIEW ═══════════════ -->
     <div id="trash-view" class="hidden">
       <!-- Breadcrumb -->
@@ -2555,6 +2674,20 @@ service cloud.firestore {
        Appears whenever one or more model cards are checked (folder view or search
        results). Exactly two actions: Copy (native share sheet, no links — real image
        files handed to WhatsApp/any app) and Download (ZIP of the selected images). -->
+
+  <!-- Catalog / Orders bottom tab bar — full admin only (updateAdminUI toggles it), and only on
+       the two top-level views (setBottomTabsTopLevel), never while inside a folder/order/trash. -->
+  <div id="app-bottom-tabs" class="hidden">
+    <button type="button" id="bt-catalog" onclick="window.goHome()">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg>
+      <span data-i18n="catalog">Catalog</span>
+    </button>
+    <button type="button" id="bt-orders" onclick="window.showOrdersView()">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
+      <span data-i18n="ordersTab">Orders</span>
+    </button>
+  </div>
+
   <div id="selection-bar" class="hidden">
     <span id="selection-bar-count" class="text-xs font-bold" style="white-space:nowrap;">0 selected</span>
     <button type="button" id="copy-selected-btn" onclick="window.copySelectedImages()" class="share-gated"
@@ -3912,6 +4045,16 @@ service cloud.firestore {
         bulkPrice: 'السعر',
         modelDiscountPriceHint: 'المبلغ المخصوم من السعر (مثلاً السعر 15000 والتخفيض 5000 = 10000). اتركه فارغاً لاستخدام خصم الفولدر/العام.',
         stayInAppDuringDownload: '⚠️ ابقَ داخل التطبيق حتى ينتهي التنزيل',
+        catalog: 'الكاتالوج', ordersTab: 'الطلبات', ordersTitle: 'طلبات الاستيراد',
+        newOrder: 'طلب جديد', noOrdersTitle: 'ما فيه طلبات بعد', noOrdersDesc: 'سوّي طلب حتى تبدأ تتبّع شحنة',
+        orderNamePh: 'اسم الطلب', purchaseDate: 'تاريخ الشراء', receiveDate: 'تاريخ الاستلام',
+        cnyRate: '¥ مقابل $1 (يوان/دولار)', iqdRate: 'دينار مقابل $1',
+        shippingMode: 'طريقة النقل', shippingNone: '—', shippingSea: 'بحري', shippingAir: 'جوي', shippingLand: 'بري',
+        shippingPerPiece: 'سعر النقل لكل قطعة ($)', shippingHint: 'يُضاف إلى التكلفة الحقيقية لكل موديل، بعمود مستقل بالدينار.',
+        colPicture: 'الصورة', colStore: 'المتجر / المنصة', colUnitCny: 'سعر القطعة ¥', colUnitUsd: '≈ $',
+        colSizes: 'المقاسات', colQty: 'الكمية', colShipPc: 'نقل/قطعة $', colRealCost: 'التكلفة الحقيقية (دينار)',
+        addItem: '+ إضافة صنف', receivedHint: 'مؤشَّر عليه كمُستلَم — أضفه للكاتالوج كمجلد.', addToFolders: 'إضافة إلى الفولدرات',
+        total: 'المجموع', ordReceived: 'مُستلَم', ordPending: 'بالطريق',
         excludedBadge: 'غير مشمولة',
         cancel: 'إلغاء',
         save: 'حفظ',
@@ -4064,6 +4207,16 @@ service cloud.firestore {
         bulkPrice: 'نرخ',
         modelDiscountPriceHint: 'ئەو بڕەی لە نرخ کەم دەکرێتەوە (نموونە نرخ 15000 و داشکاندن 5000 = 10000). بەتاڵی بهێڵەوە بۆ بەکارهێنانی داشکاندنی فۆڵدەر/گشتی.',
         stayInAppDuringDownload: '⚠️ لە ئەپەکە بمێنەرەوە تا داگرتنەکە تەواو بێت',
+        catalog: 'کاتالۆگ', ordersTab: 'داواکارییەکان', ordersTitle: 'داواکارییەکانی هاوردن',
+        newOrder: 'داواکارییەکی نوێ', noOrdersTitle: 'هیچ داواکارییەک نییە', noOrdersDesc: 'داواکارییەک دروست بکە بۆ شوێنکەوتنی بارکردنێک',
+        orderNamePh: 'ناوی داواکاری', purchaseDate: 'بەرواری کڕین', receiveDate: 'بەرواری وەرگرتن',
+        cnyRate: '¥ بەرامبەر $1 (یوان/دۆلار)', iqdRate: 'دینار بەرامبەر $1',
+        shippingMode: 'شێوازی گواستنەوە', shippingNone: '—', shippingSea: 'دەریایی', shippingAir: 'ئاسمانی', shippingLand: 'وشکانی',
+        shippingPerPiece: 'نرخی گواستنەوە بۆ هەر دانەیەک ($)', shippingHint: 'زیاد دەکرێت بۆ تێچووی ڕاستەقینەی هەر مۆدێلێک، بە ستوونێکی سەربەخۆ بە دینار.',
+        colPicture: 'وێنە', colStore: 'فرۆشگا / پلاتفۆرم', colUnitCny: 'نرخی دانە ¥', colUnitUsd: '≈ $',
+        colSizes: 'قەبارەکان', colQty: 'ژمارە', colShipPc: 'گواستنەوە/دانە $', colRealCost: 'تێچووی ڕاستەقینە (دینار)',
+        addItem: '+ زیادکردنی بابەت', receivedHint: 'وەک وەرگیراو نیشانە کراوە — زیادی بکە بۆ کاتالۆگ وەک فۆڵدەر.', addToFolders: 'زیادکردن بۆ فۆڵدەرەکان',
+        total: 'کۆی گشتی', ordReceived: 'وەرگیراو', ordPending: 'لە ڕێگادایە',
         excludedBadge: 'بێ داشکاندن',
         cancel: 'پاشگەزبوونەوە',
         save: 'پاشەکەوتکردن',
@@ -4216,6 +4369,16 @@ service cloud.firestore {
         bulkPrice: 'Price',
         modelDiscountPriceHint: 'Amount taken off the price (e.g. price 15000, discount 5000 = 10000). Leave empty to use the folder/global discount.',
         stayInAppDuringDownload: '⚠️ Stay in the app until this finishes',
+        catalog: 'Catalog', ordersTab: 'Orders', ordersTitle: 'Purchase Orders',
+        newOrder: 'New Order', noOrdersTitle: 'No purchase orders yet', noOrdersDesc: 'Create one to start tracking a shipment',
+        orderNamePh: 'Order name', purchaseDate: 'Purchase Date', receiveDate: 'Receive Date',
+        cnyRate: '¥ per $1 (CNY/USD)', iqdRate: 'IQD per $1',
+        shippingMode: 'Shipping Mode', shippingNone: '—', shippingSea: 'Sea', shippingAir: 'Air', shippingLand: 'Land',
+        shippingPerPiece: 'Shipping per piece ($)', shippingHint: "Added to each item's real cost, shown in IQD, in its own column.",
+        colPicture: 'Picture', colStore: 'Store / Platform', colUnitCny: 'Unit Price ¥', colUnitUsd: '≈ $',
+        colSizes: 'Sizes', colQty: 'Qty', colShipPc: 'Ship/pc $', colRealCost: 'Real Cost IQD',
+        addItem: '+ Add Item', receivedHint: 'Marked as received — add it to the Catalog as a folder.', addToFolders: 'Add to Folders',
+        total: 'Total', ordReceived: 'Received', ordPending: 'Pending',
         excludedBadge: 'Excluded',
         cancel: 'Cancel',
         save: 'Save',
@@ -4687,6 +4850,10 @@ service cloud.firestore {
       document.getElementById("folders-view").classList.remove("hidden");
       document.getElementById("folder-interior").classList.add("hidden");
       document.getElementById("trash-view").classList.add("hidden");
+      const ov = document.getElementById("orders-view"); if (ov) ov.classList.add("hidden");
+      const odv = document.getElementById("order-detail-view"); if (odv) odv.classList.add("hidden");
+      setBottomTabsTopLevel(true);
+      syncBottomTabsActive('catalog');
       setGlobalSearchBarVisible(true);
       // Header: show home-only elements, hide folder-only elements
       document.querySelectorAll(".in-folder-only").forEach(el => el.style.setProperty("display","none","important"));
@@ -4711,6 +4878,7 @@ service cloud.firestore {
       document.getElementById("folders-view").classList.add("hidden");
       document.getElementById("folder-interior").classList.add("hidden");
       document.getElementById("trash-view").classList.remove("hidden");
+      setBottomTabsTopLevel(false);
       setGlobalSearchBarVisible(false);
       // Hide home-only and folder-only header buttons
       document.querySelectorAll(".home-only").forEach(el => el.style.setProperty("display","none","important"));
@@ -4725,6 +4893,7 @@ service cloud.firestore {
       const folder = allFolders.find(f => f.id === folderId);
       document.getElementById("folders-view").classList.add("hidden");
       document.getElementById("folder-interior").classList.remove("hidden");
+      setBottomTabsTopLevel(false);
       setGlobalSearchBarVisible(false);
       // Update breadcrumb
       document.getElementById("breadcrumb-folder-name").textContent = folder ? folder.name : "Folder";
@@ -7496,6 +7665,14 @@ service cloud.firestore {
     if (document.readyState !== 'loading') syncViewToggleIcon();
     else document.addEventListener('DOMContentLoaded', syncViewToggleIcon);
 
+    // Whether the Catalog/Orders bottom tab bar should show at all right now — true only on the
+    // two top-level views (Home and the Orders list), never while inside a folder, trash, or an
+    // order's own detail screen. Each of those views sets this when it becomes active; actual
+    // visibility (this AND the user being a full admin) is applied in updateAdminUI() below, so
+    // a login/logout re-evaluates it the same way every other admin-only element does.
+    let _bottomTabsTopLevel = true;
+    function setBottomTabsTopLevel(v) { _bottomTabsTopLevel = v; updateAdminUI(); }
+
     function updateAdminUI() {
       const role          = window._currentUserRole || null;
       const isManagedUser = window._isManagedUser === true;
@@ -7504,6 +7681,9 @@ service cloud.firestore {
       const isCoAdmin     = isLoggedIn && !viewOnlyMode && role === "co_admin";    // assistant admin
       const canEdit        = isAdmin || isCoAdmin; // can add/edit/delete MODELS inside folders
       const canManageFolders = isAdmin;              // only admin creates/edits/deletes folders
+
+      const bottomTabs = document.getElementById('app-bottom-tabs');
+      if (bottomTabs) bottomTabs.classList.toggle('hidden', !(isAdmin && _bottomTabsTopLevel));
 
       // admin-only elements (Add Model inside folder) — co_admin can see only in-folder-only
       document.querySelectorAll(".admin-only").forEach(el => {
@@ -9147,6 +9327,290 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
     };
 
     window.applyFilters = applyFilters;
+
+    // ══════════════════════════════════════════
+    // Purchase/Import Orders (Shipments) — admin-only procurement tracker, reached via the
+    // Catalog/Orders bottom tab bar (setBottomTabsTopLevel/updateAdminUI gate who sees it at all).
+    // One Firestore doc per shipment batch: dates, exchange rates (¥ per $1, IQD per $1), a flat
+    // per-piece shipping cost, and a line-item array. Every money column past the ¥ unit price is
+    // DERIVED at render time from the order's own rate fields — only ¥ price and quantity are
+    // ever stored per item, so editing a rate recalculates the whole table instantly instead of
+    // needing every row re-saved.
+    // ══════════════════════════════════════════
+    let allOrders = [];
+    let currentOrder = null; // the order object currently open in order-detail-view
+
+    function syncBottomTabsActive(tab) {
+      const c = document.getElementById('bt-catalog');
+      const o = document.getElementById('bt-orders');
+      if (c) c.classList.toggle('active', tab === 'catalog');
+      if (o) o.classList.toggle('active', tab === 'orders');
+    }
+
+    window.showOrdersView = async function() {
+      window.exitSearchMode();
+      currentOrder = null;
+      document.getElementById("folders-view").classList.add("hidden");
+      document.getElementById("folder-interior").classList.add("hidden");
+      document.getElementById("trash-view").classList.add("hidden");
+      document.getElementById("order-detail-view").classList.add("hidden");
+      document.getElementById("orders-view").classList.remove("hidden");
+      setGlobalSearchBarVisible(false);
+      document.querySelectorAll(".in-folder-only").forEach(el => el.style.setProperty("display","none","important"));
+      document.querySelectorAll(".home-only").forEach(el => el.style.setProperty("display","none","important"));
+      setBottomTabsTopLevel(true);
+      syncBottomTabsActive('orders');
+      await loadAndRenderOrders();
+    };
+
+    async function loadAndRenderOrders() {
+      const grid = document.getElementById('orders-grid');
+      const empty = document.getElementById('orders-empty');
+      if (!grid) return;
+      grid.innerHTML = `<p class="text-xs text-gray-400 col-span-full text-center py-10">Loading…</p>`;
+      allOrders = window._fbGetAllOrders ? await window._fbGetAllOrders() : [];
+      if (!allOrders.length) {
+        grid.innerHTML = '';
+        empty.classList.remove('hidden'); empty.classList.add('flex');
+        return;
+      }
+      empty.classList.add('hidden'); empty.classList.remove('flex');
+      grid.innerHTML = allOrders.map(orderCardHTML).join('');
+    }
+
+    function orderCardHTML(o) {
+      const items = o.items || [];
+      const totalQty = items.reduce((s,it)=>s+(parseInt(it.quantity)||0),0);
+      const received = !!o.receiveDate;
+      return `
+        <div class="rounded-2xl border border-orange-50 bg-white shadow-sm p-4 cursor-pointer hover:shadow-lg transition-shadow" onclick="window.openOrderDetail('${escapeHtml(o.id)}')">
+          <div class="flex items-center justify-between mb-2 gap-2">
+            <p class="font-black text-gray-800 text-sm truncate">${escapeHtml(o.name || 'Untitled order')}</p>
+            <span class="text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 ${received?'bg-green-100 text-green-700':'bg-amber-100 text-amber-700'}">${received ? (window.t?window.t('ordReceived'):'Received') : (window.t?window.t('ordPending'):'Pending')}</span>
+          </div>
+          <p class="text-xs text-gray-400">${items.length} items · ${totalQty} pcs</p>
+          <p class="text-xs text-gray-400 mt-1">${o.purchaseDate ? escapeHtml(o.purchaseDate) : '—'}${o.receiveDate ? ' → ' + escapeHtml(o.receiveDate) : ''}</p>
+        </div>`;
+    }
+
+    window.createNewOrder = async function() {
+      if (!window._fbSaveOrder) return;
+      try {
+        const id = await window._fbSaveOrder({ name: 'New Order', items: [] }, null);
+        await window.openOrderDetail(id);
+      } catch(e) { console.error(e); showToast('An error occurred while saving', 'error'); }
+    };
+
+    window.openOrderDetail = async function(id) {
+      let order = allOrders.find(o => o.id === id);
+      if (!order && window._fbGetAllOrders) { allOrders = await window._fbGetAllOrders(); order = allOrders.find(o => o.id === id); }
+      if (!order) { showToast('Order not found', 'error'); return; }
+      currentOrder = order;
+      document.getElementById("orders-view").classList.add("hidden");
+      document.getElementById("order-detail-view").classList.remove("hidden");
+      setBottomTabsTopLevel(false);
+      renderOrderDetail();
+    };
+
+    function renderOrderDetail() {
+      const o = currentOrder;
+      if (!o) return;
+      document.getElementById('od-name').value = o.name || '';
+      document.getElementById('od-purchase-date').value = o.purchaseDate || '';
+      document.getElementById('od-receive-date').value = o.receiveDate || '';
+      document.getElementById('od-cny-rate').value = o.cnyRate || '';
+      document.getElementById('od-iqd-rate').value = o.usdToIqdRate || '';
+      document.getElementById('od-shipping-mode').value = o.shippingMode || '';
+      document.getElementById('od-shipping-price').value = o.shippingPricePerPiece || '';
+      const receiveActions = document.getElementById('od-receive-actions');
+      if (receiveActions) receiveActions.classList.toggle('hidden', !o.receiveDate);
+      renderOrderRows();
+    }
+
+    function orderMoney(n) { return (Math.round((n||0)*100)/100).toLocaleString('en-US'); }
+
+    function renderOrderRows() {
+      const o = currentOrder;
+      const tbody = document.getElementById('od-rows');
+      const tfoot = document.getElementById('od-totals');
+      if (!tbody || !o) return;
+      const items = o.items || [];
+      const cnyRate = parseFloat(o.cnyRate) || 0;
+      const iqdRate = parseFloat(o.usdToIqdRate) || 0;
+      const shipPerPiece = parseFloat(o.shippingPricePerPiece) || 0;
+
+      let totalQty = 0, totalCny = 0, totalUsd = 0, totalRealIqd = 0;
+
+      tbody.innerHTML = items.map((it, idx) => {
+        const unitCny = parseFloat(it.unitPriceCny) || 0;
+        const qty = parseInt(it.quantity) || 0;
+        const unitUsd = cnyRate > 0 ? unitCny / cnyRate : 0;
+        const lineCny = unitCny * qty;
+        const lineUsd = unitUsd * qty;
+        const shipLineUsd = shipPerPiece * qty;
+        const realCostUsd = lineUsd + shipLineUsd;
+        const realCostIqd = iqdRate > 0 ? realCostUsd * iqdRate : 0;
+        totalQty += qty; totalCny += lineCny; totalUsd += lineUsd; totalRealIqd += realCostIqd;
+
+        const img = it.imageUrl
+          ? `<img src="${escapeHtml(optimizedCloudinaryUrl(it.imageUrl,'200x200'))}" style="width:44px;height:44px;border-radius:8px;object-fit:cover;" />`
+          : `<span style="width:44px;height:44px;border-radius:8px;background:#f3f4f6;display:flex;align-items:center;justify-content:center;">🖼️</span>`;
+
+        return `
+        <tr style="border-top:1px solid #f1f1f1;text-align:center;">
+          <td style="padding:6px;">
+            <label style="cursor:pointer;display:inline-block;" title="Click to upload a photo">
+              ${img}
+              <input type="file" accept="image/*" class="hidden" onchange="window.uploadOrderItemImage(${idx}, this)" />
+            </label>
+          </td>
+          <td style="padding:6px;max-width:120px;">
+            <input value="${escapeHtml(it.storePlatform||'')}" placeholder="1688 / Taobao…" onchange="window.updateOrderItem(${idx},'storePlatform',this.value)" style="width:100%;border:1px solid #eee;border-radius:6px;padding:3px 5px;font-size:0.72rem;margin-bottom:2px;" />
+            <input value="${escapeHtml(it.storeLink||'')}" placeholder="Link" onchange="window.updateOrderItem(${idx},'storeLink',this.value)" style="width:100%;border:1px solid #eee;border-radius:6px;padding:3px 5px;font-size:0.68rem;color:#9ca3af;" />
+          </td>
+          <td style="padding:6px;">
+            <input type="number" min="0" step="0.01" value="${unitCny||''}" onchange="window.updateOrderItem(${idx},'unitPriceCny',parseFloat(this.value)||0)" style="width:70px;border:1px solid #eee;border-radius:6px;padding:3px 5px;text-align:center;font-weight:700;" />
+          </td>
+          <td style="padding:6px;font-weight:700;color:#6b7280;">$${orderMoney(unitUsd)}</td>
+          <td style="padding:6px;max-width:130px;">
+            <input value="${escapeHtml((it.sizes||[]).join(', '))}" placeholder="90,100,110" onchange="window.updateOrderItem(${idx},'sizes',this.value.split(',').map(s=>s.trim()).filter(Boolean))" style="width:100%;border:1px solid #eee;border-radius:6px;padding:3px 5px;font-size:0.72rem;" />
+          </td>
+          <td style="padding:6px;">
+            <input type="number" min="0" value="${qty||''}" onchange="window.updateOrderItem(${idx},'quantity',parseInt(this.value)||0)" style="width:56px;border:1px solid #eee;border-radius:6px;padding:3px 5px;text-align:center;font-weight:700;" />
+          </td>
+          <td style="padding:6px;color:#9ca3af;">$${orderMoney(shipPerPiece)}</td>
+          <td style="padding:6px;font-weight:800;color:#1a1a2e;">${orderMoney(realCostIqd)}</td>
+          <td style="padding:6px;">
+            <button onclick="window.removeOrderItem(${idx})" style="width:26px;height:26px;border-radius:8px;background:#fee2e2;color:#ef4444;border:none;">✕</button>
+          </td>
+        </tr>`;
+      }).join('');
+
+      tfoot.innerHTML = `
+        <tr style="border-top:2px solid #e5e7eb;text-align:center;font-weight:800;">
+          <td colspan="2" style="padding:8px;">${window.t?window.t('total'):'Total'}</td>
+          <td style="padding:8px;">¥${orderMoney(totalCny)}</td>
+          <td style="padding:8px;">$${orderMoney(totalUsd)}</td>
+          <td></td>
+          <td style="padding:8px;">${totalQty}</td>
+          <td></td>
+          <td style="padding:8px;color:#1a1a2e;">${orderMoney(totalRealIqd)}</td>
+          <td></td>
+        </tr>`;
+    }
+
+    window.saveOrderField = async function(field, value) {
+      if (!currentOrder || !window._fbSaveOrder) return;
+      currentOrder[field] = value;
+      renderOrderDetail();
+      try {
+        await window._fbSaveOrder({ [field]: value }, currentOrder.id);
+        const idx = allOrders.findIndex(o => o.id === currentOrder.id);
+        if (idx !== -1) allOrders[idx] = { ...allOrders[idx], [field]: value };
+      } catch(e) { console.error(e); showToast('An error occurred while saving', 'error'); }
+    };
+
+    window.saveOrderShippingPrice = function(value) {
+      const v = parseFloat(value) || 0;
+      if (v > 0 && !(currentOrder && currentOrder.shippingMode)) {
+        showToast('Pick a shipping mode first', 'error');
+      }
+      window.saveOrderField('shippingPricePerPiece', v);
+      if (v > 0) showToast(`⚠️ $${orderMoney(v)}/piece will be added to each item's real cost (IQD)`, 'success');
+    };
+
+    async function persistOrderItems() {
+      if (!currentOrder || !window._fbSaveOrder) return;
+      try {
+        await window._fbSaveOrder({ items: currentOrder.items || [] }, currentOrder.id);
+        const idx = allOrders.findIndex(o => o.id === currentOrder.id);
+        if (idx !== -1) allOrders[idx] = { ...allOrders[idx], items: currentOrder.items };
+      } catch(e) { console.error(e); showToast('An error occurred while saving', 'error'); }
+    }
+
+    window.addOrderItem = function() {
+      if (!currentOrder) return;
+      if (!currentOrder.items) currentOrder.items = [];
+      currentOrder.items.push({ storePlatform:'', storeLink:'', unitPriceCny:0, sizes:[], quantity:0, imageUrl:'' });
+      renderOrderRows();
+      persistOrderItems();
+    };
+
+    window.removeOrderItem = function(idx) {
+      if (!currentOrder || !currentOrder.items) return;
+      if (!window.confirm('Remove this item?')) return;
+      currentOrder.items.splice(idx, 1);
+      renderOrderRows();
+      persistOrderItems();
+    };
+
+    window.updateOrderItem = function(idx, field, value) {
+      if (!currentOrder || !currentOrder.items || !currentOrder.items[idx]) return;
+      currentOrder.items[idx][field] = value;
+      renderOrderRows();
+      persistOrderItems();
+    };
+
+    window.uploadOrderItemImage = async function(idx, inputEl) {
+      const file = inputEl.files && inputEl.files[0];
+      if (!file || !currentOrder || !currentOrder.items[idx]) return;
+      try {
+        const url = await uploadToCloudinary(file);
+        currentOrder.items[idx].imageUrl = url;
+        renderOrderRows();
+        persistOrderItems();
+      } catch(e) { console.error(e); showToast('Image upload failed', 'error'); }
+    };
+
+    window.deleteCurrentOrder = async function() {
+      if (!currentOrder || !window._fbDeleteOrder) return;
+      if (!window.confirm(`Delete order "${currentOrder.name || 'Untitled'}"? This cannot be undone.`)) return;
+      try {
+        await window._fbDeleteOrder(currentOrder.id);
+        allOrders = allOrders.filter(o => o.id !== currentOrder.id);
+        currentOrder = null;
+        window.showOrdersView();
+      } catch(e) { console.error(e); showToast('An error occurred while deleting', 'error'); }
+    };
+
+    // ── Convert a received order into a Catalog folder ──
+    // One Model per line item (not expanded per size — the Catalog's model/age-range shape
+    // doesn't map 1:1 onto "one SKU, several sizes/quantities"); price pre-filled from the
+    // item's own Real Cost (IQD) as a starting point. Code/age-group/category are left for the
+    // admin to fill in afterward through the normal Add/Edit Model flow — this just saves having
+    // to re-upload every photo and retype every price by hand.
+    window.convertOrderToFolder = async function() {
+      if (!currentOrder || !currentOrder.receiveDate) return;
+      if (!(window._fbSaveFolder && window._fbSave)) return;
+      const items = currentOrder.items || [];
+      if (!items.length) { showToast('This order has no items', 'error'); return; }
+      if (!window.confirm(`Create a new folder "${currentOrder.name}" with ${items.length} model(s)?`)) return;
+      try {
+        const cnyRate = parseFloat(currentOrder.cnyRate) || 0;
+        const iqdRate = parseFloat(currentOrder.usdToIqdRate) || 0;
+        const shipPerPiece = parseFloat(currentOrder.shippingPricePerPiece) || 0;
+        const folderId = await window._fbSaveFolder({ name: currentOrder.name || 'New Order', color: '#e85d3a', hiddenFromSearch: false }, null);
+        let n = 0;
+        for (let i = 0; i < items.length; i++) {
+          const it = items[i];
+          const unitUsd = cnyRate > 0 ? (parseFloat(it.unitPriceCny)||0) / cnyRate : 0;
+          const realCostIqd = iqdRate > 0 ? (unitUsd + shipPerPiece) * iqdRate : 0;
+          await window._fbSave({
+            modelCode: `${(currentOrder.name||'ORD').replace(/\s+/g,'')}-${i+1}`,
+            serial: i,
+            ageGroup: '',
+            price: Math.round(realCostIqd),
+            imageUrl: it.imageUrl || '',
+            imageSize: 'original',
+            folderId,
+            updatedAt: Date.now(),
+          }, null);
+          n++;
+        }
+        showToast(`✓ Folder created with ${n} model(s)`, 'success');
+        window.goHome();
+      } catch(e) { console.error(e); showToast('An error occurred while creating the folder', 'error'); }
+    };
 
     // ── Export for Firebase module ──
     window._appState = {
@@ -11846,9 +12310,12 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
     // ── Save folder ──
     window._fbSaveFolder = async function(data, eid) {
       data.updatedAt = serverTimestamp();
-      if(eid){ await updateDoc(doc(db,"folders",eid),data); S.showToast("Folder updated ✓","success"); }
-      else{ data.createdAt=serverTimestamp(); data.deleted=false; await addDoc(collection(db,"folders"),data); S.showToast("Folder created ✓","success"); }
+      if(eid){ await updateDoc(doc(db,"folders",eid),data); S.showToast("Folder updated ✓","success"); window.closeFolderModal(); return eid; }
+      data.createdAt=serverTimestamp(); data.deleted=false;
+      const ref = await addDoc(collection(db,"folders"),data);
+      S.showToast("Folder created ✓","success");
       window.closeFolderModal();
+      return ref.id; // callers that don't need it (the normal Add-Folder modal flow) just ignore it
     };
 
     // ── Save folder discount (without closing the folder modal) ──
@@ -11870,6 +12337,30 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
         console.warn("_fbGetAllFolders error:", e);
         return [];
       }
+    };
+
+    // ── Purchase/Import Orders (Shipments) — admin-only procurement tracker ──
+    // Deliberately NOT a live onSnapshot subscription like models/folders: this is a low-traffic,
+    // admin-only tool, fetched on demand when the Orders tab opens (and re-fetched after a write)
+    // instead of adding another always-on listener to the app's startup.
+    window._fbGetAllOrders = async function() {
+      try {
+        const snap = await getDocsTop(query(collection(db, "orders"), orderBy("updatedAt", "desc")));
+        return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      } catch(e) {
+        console.warn("_fbGetAllOrders error:", e);
+        return [];
+      }
+    };
+    window._fbSaveOrder = async function(data, eid) {
+      data.updatedAt = serverTimestamp();
+      if (eid) { await updateDoc(doc(db,"orders",eid), data); return eid; }
+      data.createdAt = serverTimestamp();
+      const ref = await addDoc(collection(db,"orders"), data);
+      return ref.id;
+    };
+    window._fbDeleteOrder = async function(eid) {
+      await deleteDoc(doc(db,"orders",eid));
     };
 
     // ── Save global discount ──
