@@ -1256,25 +1256,36 @@
     }
     .folder-card:hover .folder-icon-wrap { transform: scale(1.08); }
 
-    /* ── Folder preview collage ── */
+    /* ── Folder preview collage ──
+       Square via the classic padding-top:100% hack (not the `aspect-ratio` property) — the
+       inner grid is absolutely positioned over that padding box. object-fit:cover on a grid
+       item still needs the grid TRACK itself to have a real pixel height to stretch into, and
+       `aspect-ratio` giving the outer box a definite height wasn't translating into one for the
+       grid's own row sizing here, so a 1-photo (or 2-photo) collage rendered at the photo's
+       natural/intrinsic size instead of being cropped square — sometimes wildly tall. The
+       padding-hack + absolutely-positioned grid sidesteps that entirely: the grid's containing
+       block is the padding box itself, a real pixel rect regardless of row-sizing quirks. */
     .folder-preview-collage {
-      width: 100%; aspect-ratio: 1 / 1;
+      width: 100%; position: relative; padding-top: 100%;
       border-radius: 10px; overflow: hidden;
       margin-bottom: 10px;
-      display: grid; gap: 2px;
       background: #f0ebe7;
+    }
+    .folder-preview-collage-grid {
+      position: absolute; inset: 0;
+      display: grid; gap: 2px;
     }
     @media (max-width: 640px) {
       .folder-card { border-radius: 16px; padding: 1rem; }
     }
-    .folder-preview-collage[data-count="1"] { grid-template-columns: 1fr; grid-template-rows: 1fr; }
-    .folder-preview-collage[data-count="2"] { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr; }
-    .folder-preview-collage[data-count="3"] {
+    .folder-preview-collage-grid[data-count="1"] { grid-template-columns: 1fr; grid-template-rows: 1fr; }
+    .folder-preview-collage-grid[data-count="2"] { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr; }
+    .folder-preview-collage-grid[data-count="3"] {
       grid-template-columns: 2fr 1fr;
       grid-template-rows: 1fr 1fr;
     }
-    .folder-preview-collage[data-count="3"] .collage-cell:first-child { grid-row: 1 / 3; }
-    .folder-preview-collage[data-count="4"] {
+    .folder-preview-collage-grid[data-count="3"] .collage-cell:first-child { grid-row: 1 / 3; }
+    .folder-preview-collage-grid[data-count="4"] {
       grid-template-columns: 1fr 1fr;
       grid-template-rows: 1fr 1fr;
     }
@@ -5044,7 +5055,7 @@ service cloud.firestore {
           if (eligible.length <= 4) return;
           _folderPreviewOffset[folder.id] = ((_folderPreviewOffset[folder.id] || 0) + 4) % eligible.length;
           const card = document.querySelector(`.folder-card[data-folder-id="${CSS.escape(folder.id)}"]`);
-          const collage = card && card.querySelector('.folder-preview-collage');
+          const collage = card && card.querySelector('.folder-preview-collage-grid');
           if (!collage) return;
           const models = getFolderPreviewModels(folder);
           collage.setAttribute('data-count', models.length);
@@ -5078,7 +5089,7 @@ service cloud.firestore {
           const src = optimizedCloudinaryUrl(m.imageUrl, m.imageSize);
           return `<div class="collage-cell"><img src="${src}" alt="${escapeHtml(m.modelCode||'')}" loading="lazy" /></div>`;
         }).join('');
-        previewHTML = `<div class="folder-preview-collage" data-count="${previewModels.length}">${cells}</div>`;
+        previewHTML = `<div class="folder-preview-collage"><div class="folder-preview-collage-grid" data-count="${previewModels.length}">${cells}</div></div>`;
       }
 
       return `
@@ -9574,7 +9585,7 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
       const cells = withPhotos.map(it =>
         `<div class="collage-cell"><img src="${escapeHtml(optimizedCloudinaryUrl(it.imageUrl,'300x300'))}" loading="lazy" /></div>`
       ).join('');
-      return `<div class="folder-preview-collage" data-count="${withPhotos.length}">${cells}</div>`;
+      return `<div class="folder-preview-collage"><div class="folder-preview-collage-grid" data-count="${withPhotos.length}">${cells}</div></div>`;
     }
 
     function orderCardHTML(o) {
