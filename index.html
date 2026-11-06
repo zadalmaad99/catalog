@@ -10089,16 +10089,17 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
       const cnyRate = parseFloat(o.cnyRate) || 0;
       const iqdRate = parseFloat(o.usdToIqdRate) || 0;
       const shipPerPiece = orderShipPerPiece(o);
-      let totalQty = 0, totalRealIqd = 0;
+      let totalQty = 0, totalRealIqd = 0, totalCny = 0, totalUsd = 0;
       const rows = (o.items || []).map(it => {
         const unitCny = parseFloat(it.unitPriceCny) || 0;
         const qty = parseInt(it.quantity) || 0;
         const unitUsd = cnyRate > 0 ? unitCny / cnyRate : 0;
         const realCostIqd = iqdRate > 0 ? (unitUsd * qty + shipPerPiece * qty) * iqdRate : 0;
         totalQty += qty; totalRealIqd += realCostIqd;
+        totalCny += unitCny * qty; totalUsd += unitUsd * qty;
         return { it, unitCny, unitUsd, qty, realCostIqd };
       });
-      return { rows, totalQty, totalRealIqd };
+      return { rows, totalQty, totalRealIqd, totalCny, totalUsd };
     }
 
     function _loadImageEl(src, crossOrigin) {
@@ -10169,7 +10170,7 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
     // `selectedKeys` (one of _ORDER_EXPORT_COL_ORDER's keys per entry) lets the admin leave
     // columns out — picked via the column modal before any export, all 8 if omitted.
     async function _buildOrderExportCanvas(o, selectedKeys) {
-      const { rows, totalQty, totalRealIqd } = _orderExportRows(o);
+      const { rows, totalQty, totalRealIqd, totalCny, totalUsd } = _orderExportRows(o);
       const cols = _orderExportSelectedCols(selectedKeys);
       const totalW = cols.reduce((s, c) => s + c.w, 0);
       const pad = 14, titleH = 60, headerH = 44, rowH = 100, totalRowH = 46;
@@ -10260,11 +10261,12 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
       });
 
       // Totals row — filled + bold so it reads as the one line that matters most on the page.
-      // Spans every column up to whichever of Quantity/Real Cost actually made the cut; if
-      // neither was selected there's simply no per-column total to show.
+      // Spans every column up to whichever of Quantity/¥/$/Real-Cost actually made the cut
+      // (the purchase cost columns — unit price × quantity, summed — not just quantity and the
+      // final IQD cost); if none of those were selected there's simply no per-column total.
       ctx.fillStyle = '#fde8df';
       ctx.fillRect(pad, y, totalW, totalRowH);
-      const totalBearing = cols.filter(c => c.key === 'qty' || c.key === 'iqd');
+      const totalBearing = cols.filter(c => c.key === 'qty' || c.key === 'cny' || c.key === 'usd' || c.key === 'iqd');
       const firstTotalX = totalBearing.length ? colX[totalBearing[0].key] : pad + totalW;
       ctx.strokeStyle = '#333';
       ctx.strokeRect(pad, y, firstTotalX - pad, totalRowH);
@@ -10274,7 +10276,10 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
       ctx.fillText('TOTAL', pad + 12, y + totalRowH / 2);
       ctx.textAlign = 'center';
       for (const c of totalBearing) {
-        if (c.key === 'qty') { ctx.fillStyle = '#111'; ctx.fillText(String(totalQty), colX[c.key] + c.w / 2, y + totalRowH / 2); }
+        ctx.font = '900 13px Arial, sans-serif';
+        if (c.key === 'qty') { ctx.fillStyle = '#111'; ctx.font = '900 16px Arial, sans-serif'; ctx.fillText(String(totalQty), colX[c.key] + c.w / 2, y + totalRowH / 2); }
+        if (c.key === 'cny') { ctx.fillStyle = '#111'; ctx.fillText('¥' + orderMoney(totalCny), colX[c.key] + c.w / 2, y + totalRowH / 2); }
+        if (c.key === 'usd') { ctx.fillStyle = '#111'; ctx.fillText('$' + orderMoney(totalUsd), colX[c.key] + c.w / 2, y + totalRowH / 2); }
         if (c.key === 'iqd') { ctx.fillStyle = '#e85d3a'; ctx.fillText(orderMoney(totalRealIqd), colX[c.key] + c.w / 2, y + totalRowH / 2); }
       }
 
@@ -10384,7 +10389,7 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
         });
         ws.views = [{ state: 'frozen', ySplit: headerRow.number }];
 
-        const { rows, totalQty, totalRealIqd } = _orderExportRows(currentOrder);
+        const { rows, totalQty, totalRealIqd, totalCny, totalUsd } = _orderExportRows(currentOrder);
         let rIdx = headerRow.number + 1;
         for (const { it, unitCny, unitUsd, qty, realCostIqd } of rows) {
           const rowData = {};
@@ -10446,14 +10451,20 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
         }
         // Totals row — brand-orange fill + larger bold text so it visibly stands out as the
         // one line that matters most, instead of blending into the rest of the grid. Merges
-        // from column A up to whichever of Quantity/Real Cost actually made the cut.
+        // from column A up to whichever of Quantity/¥/$/Real-Cost actually made the cut — the
+        // purchase-cost columns (unit price × quantity per item) get summed here too, not just
+        // quantity and the final IQD cost.
         const totalRowData = {};
         if (has('qty')) totalRowData.qty = totalQty;
+        if (has('cny')) totalRowData.cny = Math.round(totalCny * 100) / 100;
+        if (has('usd')) totalRowData.usd = Math.round(totalUsd * 100) / 100;
         if (has('iqd')) totalRowData.iqd = Math.round(totalRealIqd);
         const totalRow = ws.addRow(totalRowData);
         totalRow.height = 30;
+        if (has('cny')) totalRow.getCell('cny').numFmt = '"¥"#,##0.00';
+        if (has('usd')) totalRow.getCell('usd').numFmt = '"$"#,##0.00';
         if (has('iqd')) totalRow.getCell('iqd').numFmt = '#,##0';
-        const totalBearing = cols.filter(c => c.key === 'qty' || c.key === 'iqd');
+        const totalBearing = cols.filter(c => c.key === 'qty' || c.key === 'cny' || c.key === 'usd' || c.key === 'iqd');
         const firstTotalIdx = totalBearing.length ? cols.findIndex(c => c.key === totalBearing[0].key) : -1;
         if (firstTotalIdx > 0) {
           const endLetter = String.fromCharCode(65 + firstTotalIdx - 1);
@@ -10465,6 +10476,8 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
           totalRow.getCell(1).font = { bold: true, size: 14, color: { argb: 'FFE85D3A' } };
         }
         if (has('qty')) totalRow.getCell('qty').font = { bold: true, size: 14 };
+        if (has('cny')) totalRow.getCell('cny').font = { bold: true, size: 13 };
+        if (has('usd')) totalRow.getCell('usd').font = { bold: true, size: 13 };
         if (has('iqd')) totalRow.getCell('iqd').font = { bold: true, size: 14, color: { argb: 'FFE85D3A' } };
         totalRow.eachCell({ includeEmpty: true }, c => {
           c.border = { top: { style: 'medium' }, left: { style: 'thin' }, bottom: { style: 'medium' }, right: { style: 'thin' } };
