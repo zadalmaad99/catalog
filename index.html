@@ -10504,13 +10504,13 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
           if (has('qty')) rowData.qty = qty;
           if (has('cny')) rowData.cny = unitCny;
           if (has('usd')) rowData.usd = Math.round(unitUsd * 100) / 100;
-          if (has('iqd')) rowData.iqd = Math.round(realCostIqd);
+          if (has('iqd')) rowData.iqd = Math.round(realCostIqd * 100) / 100;
           const row = ws.addRow(rowData);
           row.height = 86;
           row.eachCell(c => { c.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true }; c.border = thinBorder; });
           if (has('cny')) row.getCell('cny').numFmt = '"¥"#,##0.00';
           if (has('usd')) row.getCell('usd').numFmt = '"$"#,##0.00';
-          if (has('iqd')) row.getCell('iqd').numFmt = '#,##0';
+          if (has('iqd')) row.getCell('iqd').numFmt = '#,##0.00';
           // Store/Link cell: platform icon pinned near the top, platform NAME as a short
           // clickable link underneath — not the raw URL, which just read as an ugly
           // wall-of-text; the whole name is the link, so it's just as clickable either way.
@@ -10560,12 +10560,12 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
         if (has('qty')) totalRowData.qty = totalQty;
         if (has('cny')) totalRowData.cny = Math.round(totalCny * 100) / 100;
         if (has('usd')) totalRowData.usd = Math.round(totalUsd * 100) / 100;
-        if (has('iqd')) totalRowData.iqd = Math.round(totalRealIqd);
+        if (has('iqd')) totalRowData.iqd = Math.round(totalRealIqd * 100) / 100;
         const totalRow = ws.addRow(totalRowData);
         totalRow.height = 30;
         if (has('cny')) totalRow.getCell('cny').numFmt = '"¥"#,##0.00';
         if (has('usd')) totalRow.getCell('usd').numFmt = '"$"#,##0.00';
-        if (has('iqd')) totalRow.getCell('iqd').numFmt = '#,##0';
+        if (has('iqd')) totalRow.getCell('iqd').numFmt = '#,##0.00';
         const totalBearing = cols.filter(c => c.key === 'qty' || c.key === 'cny' || c.key === 'usd' || c.key === 'iqd');
         const firstTotalIdx = totalBearing.length ? cols.findIndex(c => c.key === totalBearing[0].key) : -1;
         if (firstTotalIdx > 0) {
