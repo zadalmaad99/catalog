@@ -113,7 +113,14 @@
     .od-dialog-actions button:first-child { background: #f3f4f6; color: #4b5563; }
     .od-dialog-ok-btn { background: #e85d3a; color: #fff; }
     .od-export-col-row { display: flex; align-items: center; gap: 10px; font-size: 0.88rem; font-weight: 700; color: #1a1a2e; }
-    .od-export-col-row input[type="checkbox"] { width: 18px; height: 18px; accent-color: #e85d3a; flex-shrink: 0; }
+    /* Tailwind's preflight resets [type=checkbox] to appearance:none with no replacement
+       visual, which made every box in this picker invisible (clicking still toggled it —
+       there was just nothing on screen to show the state, so it looked unresponsive).
+       Forcing the native appearance back on restores the visible box + checkmark. */
+    .od-export-col-row input[type="checkbox"] {
+      -webkit-appearance: checkbox; appearance: checkbox;
+      width: 20px; height: 20px; accent-color: #e85d3a; flex-shrink: 0;
+    }
 
     /* Order-detail toolbar — on a phone-width screen the order name + the 4 action buttons
        (PDF/Excel/PNG/delete) don't fit on one line without crushing the name to a sliver, so
