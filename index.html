@@ -126,7 +126,7 @@
     .od-detail-toolbar-actions button svg { width: 18px; height: 18px; }
     @media (max-width: 640px) {
       .od-detail-toolbar-row1 { flex: 1 1 100%; }
-      .od-detail-toolbar-actions { flex: 1 1 100%; justify-content: flex-end; }
+      .od-detail-toolbar-actions { flex: 1 1 100%; justify-content: center; margin-top: 4px; }
     }
 
     /* ── Orders list card — same visual language as .folder-card (hover lift, top accent
@@ -10696,10 +10696,28 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
       if (removed && removed.imageUrl) deleteCloudinaryImage(removed.imageUrl);
     };
 
+    // Re-rendering #od-rows (renderOrderRows) replaces every item card's DOM node, which
+    // resets each .od-strip's own horizontal scroll back to 0 — tapping a size chip (which
+    // lives scrolled-right, past the photo/code/store/price fields) looked like it "jumped
+    // back to the top of the card" after every single tap. Saving and restoring each strip's
+    // scrollLeft (and the page's own vertical scroll) around the re-render keeps the view
+    // exactly where the admin left it.
+    function _renderOrderRowsPreservingScroll() {
+      const list = document.getElementById('od-rows');
+      const stripsBefore = list ? Array.from(list.querySelectorAll('.od-strip')) : [];
+      const scrollLefts = stripsBefore.map(s => s.scrollLeft);
+      const pageY = window.scrollY;
+      renderOrderRows();
+      const listAfter = document.getElementById('od-rows');
+      const stripsAfter = listAfter ? Array.from(listAfter.querySelectorAll('.od-strip')) : [];
+      stripsAfter.forEach((s, i) => { if (scrollLefts[i] != null) s.scrollLeft = scrollLefts[i]; });
+      window.scrollTo(0, pageY);
+    }
+
     window.updateOrderItem = function(idx, field, value) {
       if (!currentOrder || !currentOrder.items || !currentOrder.items[idx]) return;
       currentOrder.items[idx][field] = value;
-      renderOrderRows();
+      _renderOrderRowsPreservingScroll();
       persistOrderItems();
     };
 
