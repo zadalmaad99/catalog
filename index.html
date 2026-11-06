@@ -150,16 +150,21 @@
        (defaults to row) and would otherwise silently collapse these back onto one line. */
     .breadcrumb-bar.od-detail-toolbar { display: flex; flex-direction: column; align-items: stretch; gap: 10px; }
     .od-detail-toolbar-actions { display: flex; align-items: center; justify-content: center; gap: 26px; flex-wrap: wrap; }
-    .od-detail-toolbar-actions button { width: 40px !important; height: 40px !important; font-size: 0.72rem !important; }
-    .od-detail-toolbar-actions button svg { width: 18px; height: 18px; }
-    /* Plain <textarea> reset to look like the old single-line input until the admin actually
-       presses Enter — no border/resize handle, auto-grows via odAutoGrowName() as lines are
-       added instead of scrolling internally. */
+    .od-detail-toolbar-actions button { width: 52px !important; height: 52px !important; font-size: 0.72rem !important; }
+    .od-detail-toolbar-actions button svg { width: 22px; height: 22px; }
+    .od-detail-toolbar-actions button img { width: 32px !important; height: 32px !important; }
+    /* A visible field (border + soft fill), not a plain transparent reset, so it actually reads
+       as editable text rather than a static heading glued to the buttons above it — the admin
+       flagged it looking "stuck together" with no visual separation. Margin-top (not just the
+       parent's gap) pushes it clearly below the action-button row; auto-grows via
+       odAutoGrowName() as lines are added instead of scrolling internally. */
     .od-name-input {
-      font-weight: 800; font-size: 0.95rem; border: none; background: transparent;
-      text-align: center; width: 100%; resize: none; overflow: hidden; line-height: 1.35;
-      padding: 2px 8px; font-family: inherit; display: block;
+      font-weight: 800; font-size: 0.95rem; border: 1.5px solid #f0e4de; background: #fdfaf8;
+      border-radius: 12px; text-align: center; width: 100%; resize: none; overflow: hidden;
+      line-height: 1.35; padding: 10px 14px; font-family: inherit; display: block;
+      margin-top: 10px; transition: border-color 0.15s ease, background 0.15s ease;
     }
+    .od-name-input:focus { outline: none; border-color: #e85d3a; background: #fff; }
 
     /* ── Orders list card — same visual language as .folder-card (hover lift, top accent
        bar, photo collage) so it reads as a first-class part of the app. ── */
