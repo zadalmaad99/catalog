@@ -10907,10 +10907,36 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
       } catch(e) { console.error(e); showToast('An error occurred while saving', 'error'); }
     }
 
+    // The Catalog folder's own model codes (e.g. S300, S301, ... S356) are the single source of
+    // truth for "what code comes next" — finds the highest numeric code across every model in
+    // the Catalog (not just one folder) and returns the next one in the same prefix/zero-padding
+    // style, so a new order's first item doesn't collide with an existing/future catalog model.
+    function _nextCatalogCode() {
+      let bestPrefix = '', bestNum = -1, bestLen = 0;
+      (allModels || []).forEach(m => {
+        const code = (m.modelCode || '').trim();
+        const match = code.match(/^([A-Za-z]*)(\d+)$/);
+        if (!match) return;
+        const num = parseInt(match[2], 10);
+        if (num > bestNum) { bestNum = num; bestPrefix = match[1]; bestLen = match[2].length; }
+      });
+      if (bestNum < 0) return '';
+      return bestPrefix + String(bestNum + 1).padStart(bestLen, '0');
+    }
+
     window.addOrderItem = function() {
       if (!currentOrder) return;
       if (!currentOrder.items) currentOrder.items = [];
-      currentOrder.items.push({ code:'', storePlatform:'', storeLink:'', unitPriceCny:0, sizes:[], quantity:0, imageUrl:'' });
+      const items = currentOrder.items;
+      // Continue from the order's own last item code when there is one (so a run of items
+      // within the same order counts up: S357, S358, S359, ...); only the very first item of a
+      // brand-new order falls back to the Catalog folder's own highest code + 1.
+      let nextCode = '';
+      const lastCode = items.length ? (items[items.length - 1].code || '').trim() : '';
+      const lastMatch = lastCode.match(/^([A-Za-z]*)(\d+)$/);
+      if (lastMatch) nextCode = lastMatch[1] + String(parseInt(lastMatch[2], 10) + 1).padStart(lastMatch[2].length, '0');
+      if (!nextCode) nextCode = _nextCatalogCode();
+      items.push({ code: nextCode, storePlatform:'', storeLink:'', unitPriceCny:0, sizes:[], quantity:0, imageUrl:'' });
       renderOrderRows();
       persistOrderItems();
     };
@@ -10937,7 +10963,7 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
       const last = currentOrder.items[currentOrder.items.length - 1];
       const template = last
         ? { code: last.code||'', storePlatform: last.storePlatform||'', storeLink: last.storeLink||'', unitPriceCny: last.unitPriceCny||0, sizes: [...(last.sizes||[])], quantity: last.quantity||0 }
-        : { code:'', storePlatform:'', storeLink:'', unitPriceCny:0, sizes:[], quantity:0 };
+        : { code: _nextCatalogCode(), storePlatform:'', storeLink:'', unitPriceCny:0, sizes:[], quantity:0 };
       showToast(`⏳ Uploading ${files.length} photo${files.length>1?'s':''}…`, 'success');
       for (const file of files) {
         try {
