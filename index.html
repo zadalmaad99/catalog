@@ -67,6 +67,31 @@
        last row of content isn't hidden underneath it. */
     #folders-view, #orders-view { padding-bottom: 64px; }
 
+    /* ── Orders list card — same visual language as .folder-card (hover lift, top accent
+       bar, photo collage) so it reads as a first-class part of the app. ── */
+    .order-card {
+      background: #fff; border: 1.5px solid #f3e8e2; border-radius: 20px; padding: 1.1rem;
+      cursor: pointer; transition: all 0.22s ease; position: relative; overflow: hidden;
+    }
+    .order-card:hover {
+      box-shadow: 0 8px 32px rgba(232,93,58,0.13);
+      border-color: var(--order-color, #e85d3a);
+      transform: translateY(-2px);
+    }
+    .order-card::before {
+      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+      background: var(--order-color, #e85d3a);
+    }
+    .order-card .folder-preview-collage, .order-card .folder-icon-wrap { margin-bottom: 0.75rem; }
+    .order-status-pill { font-size: 0.62rem; font-weight: 800; padding: 3px 9px; border-radius: 999px; white-space: nowrap; flex-shrink: 0; }
+    .order-card-footer {
+      margin-top: 10px; padding-top: 10px; border-top: 1px dashed #f1e4da;
+      display: flex; align-items: center; justify-content: space-between;
+      font-size: 0.68rem; font-weight: 700; color: #9ca3af;
+    }
+    .order-card-footer strong { color: #1a1a2e; font-size: 0.95rem; font-weight: 900; }
+    .order-card-footer strong small { font-size: 0.58rem; font-weight: 700; color: #9ca3af; }
+
     /* ── Order detail: per-item cards + totals summary ── */
     .od-items { display: flex; flex-direction: column; gap: 10px; }
     .od-item-card {
@@ -9432,18 +9457,60 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
       grid.innerHTML = allOrders.map(orderCardHTML).join('');
     }
 
+    // Shared by the order card and the order-detail totals strip, so the two never drift apart.
+    function computeOrderTotals(o) {
+      const items = o.items || [];
+      const cnyRate = parseFloat(o.cnyRate) || 0;
+      const iqdRate = parseFloat(o.usdToIqdRate) || 0;
+      const shipPerPiece = parseFloat(o.shippingPricePerPiece) || 0;
+      let totalQty = 0, totalCny = 0, totalUsd = 0, totalShipUsd = 0, totalRealIqd = 0;
+      items.forEach(it => {
+        const unitCny = parseFloat(it.unitPriceCny) || 0;
+        const qty = parseInt(it.quantity) || 0;
+        const unitUsd = cnyRate > 0 ? unitCny / cnyRate : 0;
+        totalQty += qty;
+        totalCny += unitCny * qty;
+        totalUsd += unitUsd * qty;
+        totalShipUsd += shipPerPiece * qty;
+        totalRealIqd += iqdRate > 0 ? (unitUsd * qty + shipPerPiece * qty) * iqdRate : 0;
+      });
+      return { totalQty, totalCny, totalUsd, totalShipUsd, totalRealIqd };
+    }
+
+    // Reuses the folder card's own collage/icon classes (.folder-preview-collage, .collage-cell,
+    // .folder-icon-wrap) so an order card looks like a first-class part of the app instead of a
+    // bolted-on admin list — up to 4 item photos in the same grid folders use for theirs.
+    function orderPreviewHTML(items) {
+      const withPhotos = items.filter(it => it.imageUrl).slice(0, 4);
+      if (!withPhotos.length) {
+        return `<div class="folder-icon-wrap" style="background:#fff1ea">
+            <span style="font-size:1.4rem;">📦</span>
+          </div>`;
+      }
+      const cells = withPhotos.map(it =>
+        `<div class="collage-cell"><img src="${escapeHtml(optimizedCloudinaryUrl(it.imageUrl,'300x300'))}" loading="lazy" /></div>`
+      ).join('');
+      return `<div class="folder-preview-collage" data-count="${withPhotos.length}">${cells}</div>`;
+    }
+
     function orderCardHTML(o) {
       const items = o.items || [];
-      const totalQty = items.reduce((s,it)=>s+(parseInt(it.quantity)||0),0);
       const received = !!o.receiveDate;
+      const t = computeOrderTotals(o);
+      const statusColor = received ? '#16a34a' : '#f59e0b';
       return `
-        <div class="rounded-2xl border border-orange-50 bg-white shadow-sm p-4 cursor-pointer hover:shadow-lg transition-shadow" onclick="window.openOrderDetail('${escapeHtml(o.id)}')">
-          <div class="flex items-center justify-between mb-2 gap-2">
-            <p class="font-black text-gray-800 text-sm truncate">${escapeHtml(o.name || 'Untitled order')}</p>
-            <span class="text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 ${received?'bg-green-100 text-green-700':'bg-amber-100 text-amber-700'}">${received ? (window.t?window.t('ordReceived'):'Received') : (window.t?window.t('ordPending'):'Pending')}</span>
+        <div class="order-card" style="--order-color:${statusColor}" onclick="window.openOrderDetail('${escapeHtml(o.id)}')">
+          ${orderPreviewHTML(items)}
+          <div class="flex items-center justify-between gap-1">
+            <p class="font-extrabold text-gray-800 text-sm leading-tight truncate">${escapeHtml(o.name || 'Untitled order')}</p>
+            <span class="order-status-pill" style="background:${received?'#dcfce7':'#fef3c7'};color:${received?'#15803d':'#b45309'}">${received ? (window.t?window.t('ordReceived'):'Received') : (window.t?window.t('ordPending'):'Pending')}</span>
           </div>
-          <p class="text-xs text-gray-400">${items.length} items · ${totalQty} pcs</p>
-          <p class="text-xs text-gray-400 mt-1">${o.purchaseDate ? escapeHtml(o.purchaseDate) : '—'}${o.receiveDate ? ' → ' + escapeHtml(o.receiveDate) : ''}</p>
+          <p class="text-xs text-gray-400 font-medium mt-0.5">${items.length} ${items.length===1?'item':'items'} · ${t.totalQty} pcs</p>
+          <p class="text-[10px] text-gray-300 font-medium mt-0.5">${o.purchaseDate ? escapeHtml(o.purchaseDate) : '—'}${o.receiveDate ? ' → ' + escapeHtml(o.receiveDate) : ''}</p>
+          <div class="order-card-footer">
+            <span>${window.t?window.t('total'):'Total'}</span>
+            <strong>${orderMoney(t.totalRealIqd)} <small>IQD</small></strong>
+          </div>
         </div>`;
     }
 
