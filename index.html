@@ -142,18 +142,21 @@
     .od-export-cols-preview img { display: inline-block; max-width: 100%; height: auto; }
     .od-export-cols-preview-loading { font-size: 0.78rem; font-weight: 700; color: #9ca3af; padding: 18px; }
 
-    /* Order-detail toolbar — on a phone-width screen the order name + the 4 action buttons
-       (PDF/Excel/PNG/delete) don't fit on one line without crushing the name to a sliver, so
-       the actions wrap onto their own row underneath. On a wide (desktop/web) viewport there's
-       room, so they stay on the same row as before. */
-    .od-detail-toolbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-    .od-detail-toolbar-row1 { display: flex; align-items: center; gap: 10px; flex: 1 1 auto; min-width: 0; }
+    /* Order-detail toolbar — the back link + the 4 action buttons (PDF/Excel/PNG/delete) sit on
+       one top row; the order name/title is its own full-width row underneath, centered, so it
+       always has the full width to itself instead of fighting the buttons for space. */
+    .od-detail-toolbar { display: flex; flex-direction: column; gap: 8px; }
+    .od-detail-toolbar-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
     .od-detail-toolbar-actions { display: flex; align-items: center; gap: 16px; flex-shrink: 0; }
     .od-detail-toolbar-actions button { width: 40px !important; height: 40px !important; font-size: 0.72rem !important; }
     .od-detail-toolbar-actions button svg { width: 18px; height: 18px; }
-    @media (max-width: 640px) {
-      .od-detail-toolbar-row1 { flex: 1 1 100%; }
-      .od-detail-toolbar-actions { flex: 1 1 100%; justify-content: center; margin-top: 4px; }
+    /* Plain <textarea> reset to look like the old single-line input until the admin actually
+       presses Enter — no border/resize handle, auto-grows via odAutoGrowName() as lines are
+       added instead of scrolling internally. */
+    .od-name-input {
+      font-weight: 800; font-size: 0.95rem; border: none; background: transparent;
+      text-align: center; width: 100%; resize: none; overflow: hidden; line-height: 1.35;
+      padding: 2px 8px; font-family: inherit; display: block;
     }
 
     /* ── Orders list card — same visual language as .folder-card (hover lift, top accent
@@ -2743,23 +2746,28 @@ service cloud.firestore {
     <!-- ═══════════════ ORDER DETAIL VIEW ═══════════════ -->
     <div id="order-detail-view" class="hidden">
       <div class="breadcrumb-bar mb-3 od-detail-toolbar">
-        <div class="od-detail-toolbar-row1">
+        <div class="od-detail-toolbar-top">
           <span class="bc-home" onclick="window.showOrdersView()" style="flex-shrink:0;">
             <svg class="w-4 h-4 inline -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
             <span data-i18n="ordersTitle">Purchase Orders</span>
           </span>
-          <input id="od-name" type="text" placeholder="Order name" data-i18n-ph="orderNamePh"
-            style="font-weight:800;font-size:0.95rem;border:none;background:transparent;text-align:center;flex:1;min-width:0;"
-            onchange="window.saveOrderField('name', this.value)" />
+          <div class="od-detail-toolbar-actions">
+            <button onclick="window.openOrderExportColsPicker('PDF')" title="Export PDF" style="width:32px;height:32px;border-radius:10px;background:#fee2e2;color:#dc2626;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:0.65rem;font-weight:800;">PDF</button>
+            <button onclick="window.openOrderExportColsPicker('Excel')" title="Export Excel" style="width:32px;height:32px;border-radius:10px;background:#dcfce7;color:#16a34a;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:0.65rem;font-weight:800;">XLS</button>
+            <button onclick="window.openOrderExportColsPicker('PNG')" title="Export Image" style="width:32px;height:32px;border-radius:10px;background:#dbeafe;color:#2563eb;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:0.6rem;font-weight:800;">PNG</button>
+            <button onclick="window.deleteCurrentOrder()" style="width:32px;height:32px;border-radius:10px;background:#fee2e2;color:#ef4444;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+            </button>
+          </div>
         </div>
-        <div class="od-detail-toolbar-actions">
-        <button onclick="window.openOrderExportColsPicker('PDF')" title="Export PDF" style="width:32px;height:32px;border-radius:10px;background:#fee2e2;color:#dc2626;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:0.65rem;font-weight:800;">PDF</button>
-        <button onclick="window.openOrderExportColsPicker('Excel')" title="Export Excel" style="width:32px;height:32px;border-radius:10px;background:#dcfce7;color:#16a34a;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:0.65rem;font-weight:800;">XLS</button>
-        <button onclick="window.openOrderExportColsPicker('PNG')" title="Export Image" style="width:32px;height:32px;border-radius:10px;background:#dbeafe;color:#2563eb;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:0.6rem;font-weight:800;">PNG</button>
-        <button onclick="window.deleteCurrentOrder()" style="width:32px;height:32px;border-radius:10px;background:#fee2e2;color:#ef4444;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
-        </button>
-        </div>
+        <!-- A <textarea> (not <input>) on purpose — the order name/title doubles as the
+             exported invoice's heading, and the admin asked for it to accept real line breaks
+             (Enter) that then show as actual separate lines on the PDF/Excel/PNG title, not get
+             silently flattened to one long line like a text input would. -->
+        <textarea id="od-name" rows="1" placeholder="Order name" data-i18n-ph="orderNamePh"
+          class="od-name-input"
+          oninput="window.odAutoGrowName(this)"
+          onchange="window.saveOrderField('name', this.value)"></textarea>
       </div>
 
       <!-- Dates + exchange rates — these drive every money column in the table below -->
@@ -10049,10 +10057,21 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
       renderOrderDetail();
     };
 
+    // Grows the order-name <textarea> to fit however many lines it currently holds, instead of
+    // scrolling internally — called on every keystroke and once after the field is populated
+    // from saved data (an already-multi-line name needs the same resize on first render).
+    window.odAutoGrowName = function(el) {
+      if (!el) return;
+      el.style.height = 'auto';
+      el.style.height = el.scrollHeight + 'px';
+    };
+
     function renderOrderDetail() {
       const o = currentOrder;
       if (!o) return;
-      document.getElementById('od-name').value = o.name || '';
+      const nameEl = document.getElementById('od-name');
+      nameEl.value = o.name || '';
+      window.odAutoGrowName(nameEl);
       document.getElementById('od-purchase-date').value = o.purchaseDate || '';
       document.getElementById('od-receive-date').value = o.receiveDate || '';
       document.getElementById('od-cny-rate').value = o.cnyRate || '';
@@ -10210,7 +10229,12 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
       const { rows, totalQty, totalRealIqd, totalCny, totalUsd } = _orderExportRows(o);
       const cols = _orderExportSelectedCols(selectedKeys);
       const totalW = cols.reduce((s, c) => s + c.w, 0);
-      const pad = 14, titleH = 60, headerH = 44, rowH = 100, totalRowH = 46;
+      // The order name is a <textarea> now (real line breaks, not a single-line input), so the
+      // title block here has to grow with however many lines it actually has instead of a fixed
+      // two-line height.
+      const nameLines = (o.name || 'Order').split('\n');
+      const titleLineH = 24;
+      const pad = 14, titleH = 16 + nameLines.length * titleLineH + 20, headerH = 44, rowH = 100, totalRowH = 46;
       const canvasW = totalW + pad * 2;
       const canvasH = titleH + headerH + rows.length * rowH + totalRowH + pad;
       const scale = 2;
@@ -10226,10 +10250,10 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
       ctx.fillStyle = '#111';
       ctx.font = '900 20px Arial, sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText(o.name || 'Order', canvasW / 2, 26);
+      nameLines.forEach((line, i) => ctx.fillText(line, canvasW / 2, 16 + titleLineH / 2 + i * titleLineH));
       ctx.fillStyle = '#666';
       ctx.font = '12px Arial, sans-serif';
-      ctx.fillText(o.purchaseDate || '', canvasW / 2, 46);
+      ctx.fillText(o.purchaseDate || '', canvasW / 2, 16 + nameLines.length * titleLineH + 10);
 
       // x position of each selected column, computed once and reused by every section below —
       // this (plus the per-key drawer functions further down) is what makes column order and
@@ -10403,11 +10427,15 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
         const lastColLetter = String.fromCharCode(65 + cols.length - 1);
         const thinBorder = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
 
+        // The order name is a <textarea> (real line breaks allowed) — wrapText + a row height
+        // scaled to however many lines it has keeps those line breaks intact here too, instead
+        // of Excel collapsing them into one squeezed line.
         const titleRow = ws.addRow([currentOrder.name || 'Order']);
-        titleRow.height = 26;
+        const titleLineCount = (currentOrder.name || 'Order').split('\n').length;
+        titleRow.height = 20 * titleLineCount;
         ws.mergeCells(`A${titleRow.number}:${lastColLetter}${titleRow.number}`);
         titleRow.getCell(1).font = { bold: true, size: 16 };
-        titleRow.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
+        titleRow.getCell(1).alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
 
         const dateRow = ws.addRow([currentOrder.purchaseDate || '']);
         dateRow.height = 18;
