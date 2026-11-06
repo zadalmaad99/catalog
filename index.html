@@ -10008,60 +10008,151 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
       return { rows, totalQty, totalRealIqd };
     }
 
-    function _buildOrderExportTableEl(o) {
-      const { rows, totalQty, totalRealIqd } = _orderExportRows(o);
-      // html2canvas clones the page into a hidden iframe and looks the target element up there
-      // by its on-screen position — an element parked off-screen via a huge negative left (the
-      // usual "hide it" trick) falls outside what that clone reproduces and throws "Unable to
-      // find element in cloned iframe". `wrap` is a full-screen overlay so the content stays
-      // inside the real viewport; `content` (the actual html2canvas target) keeps its own fixed
-      // width so the table doesn't get squeezed to a narrow phone screen. Both are only attached
-      // for the instant it takes to rasterize.
-      const wrap = document.createElement('div');
-      wrap.style.cssText = 'position:fixed;inset:0;z-index:99999;overflow:auto;background:#fff;';
-      const content = document.createElement('div');
-      content.style.cssText = 'background:#fff;padding:16px;width:900px;font-family:Arial,sans-serif;';
-      wrap.appendChild(content);
-      const th = 'padding:8px 6px;background:#e4e1fb;font-weight:800;border:1px solid #333;font-size:13px;text-align:center;';
-      const td = 'padding:6px;border:1px solid #333;font-size:12px;text-align:center;vertical-align:middle;';
-      const rowsHtml = rows.map(({ it, unitCny, unitUsd, qty, realCostIqd }) => `
-        <tr>
-          <td style="${td}">${it.imageUrl ? `<img src="${escapeHtml(optimizedCloudinaryUrl(it.imageUrl,'200x200'))}" crossorigin="anonymous" style="width:80px;height:80px;object-fit:cover;border-radius:6px;" />` : ''}</td>
-          <td style="${td}font-weight:700;">${escapeHtml(it.code || '')}</td>
-          <td style="${td}">${escapeHtml(it.storePlatform || '')}</td>
-          <td style="${td}">¥${orderMoney(unitCny)}</td>
-          <td style="${td}">$${orderMoney(unitUsd)}</td>
-          <td style="${td}">${(it.sizes || []).join('<br>')}</td>
-          <td style="${td}font-weight:800;font-size:15px;">${qty}</td>
-          <td style="${td}font-weight:800;">${orderMoney(realCostIqd)} IQD</td>
-        </tr>`).join('');
-      content.innerHTML = `
-        <div style="text-align:center;font-weight:900;font-size:20px;margin-bottom:4px;">${escapeHtml(o.name || 'Order')}</div>
-        <div style="text-align:center;font-size:12px;color:#666;margin-bottom:12px;">${escapeHtml(o.purchaseDate || '')}</div>
-        <table style="width:100%;border-collapse:collapse;">
-          <thead><tr>
-            <th style="${th}">Picture</th><th style="${th}">Code</th><th style="${th}">Store</th>
-            <th style="${th}">Unit Price ¥</th><th style="${th}">Unit Price $</th><th style="${th}">Sizes</th>
-            <th style="${th}">Quantity</th><th style="${th}">Real Cost (IQD)</th>
-          </tr></thead>
-          <tbody>${rowsHtml}
-            <tr><td style="${td}font-weight:900;" colspan="6">TOTAL</td><td style="${td}font-weight:900;font-size:15px;">${totalQty}</td><td style="${td}font-weight:900;">${orderMoney(totalRealIqd)} IQD</td></tr>
-          </tbody>
-        </table>`;
-      document.body.appendChild(wrap);
-      return { wrap, content };
+    function _loadImageEl(src, crossOrigin) {
+      return new Promise((resolve) => {
+        const img = new Image();
+        if (crossOrigin) img.crossOrigin = 'anonymous';
+        img.onload = () => resolve(img);
+        img.onerror = () => resolve(null);
+        img.src = src;
+      });
     }
 
-    async function _rasterizeOrderTable(o) {
-      await _loadExportLib('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js', () => window.html2canvas);
-      const { wrap, content } = _buildOrderExportTableEl(o);
-      // Wait for every <img> in the table to actually finish loading (not a fixed guess-timeout)
-      // before rasterizing — Cloudinary images are fetched fresh here and can take longer than
-      // a flat delay on a slow connection, which is what was causing blank/broken photo cells.
-      const imgs = Array.from(content.querySelectorAll('img'));
-      await Promise.all(imgs.map(img => img.complete ? Promise.resolve() : new Promise(res => { img.onload = res; img.onerror = res; })));
-      const canvas = await window.html2canvas(content, { backgroundColor: '#ffffff', scale: 2, useCORS: true });
-      wrap.remove();
+    function _drawImageCover(ctx, img, x, y, w, h) {
+      if (!img || !img.width) return;
+      const ir = img.width / img.height, br = w / h;
+      let sx = 0, sy = 0, sw = img.width, sh = img.height;
+      if (ir > br) { sw = img.height * br; sx = (img.width - sw) / 2; }
+      else { sh = img.width / br; sy = (img.height - sh) / 2; }
+      ctx.drawImage(img, sx, sy, sw, sh, x, y, w, h);
+    }
+
+    function _platformIconImageEl(platformName) {
+      const needle = (platformName || '').trim().toLowerCase();
+      if (!needle) return Promise.resolve(null);
+      let k = CATALOG_PLATFORM_ICONS[needle] ? needle : null;
+      if (!k) k = Object.keys(PLATFORM_LABELS).find(x => PLATFORM_LABELS[x].toLowerCase() === needle) || null;
+      const src = k ? CATALOG_PLATFORM_ICONS[k] : null;
+      return src ? _loadImageEl(src, false) : Promise.resolve(null);
+    }
+
+    const _ORDER_EXPORT_COLS = [
+      { key: 'pic', label: 'Picture', w: 120 },
+      { key: 'code', label: 'Code', w: 90 },
+      { key: 'store', label: 'Store', w: 130 },
+      { key: 'cny', label: 'Unit Price ¥', w: 100 },
+      { key: 'usd', label: 'Unit Price $', w: 100 },
+      { key: 'sizes', label: 'Sizes', w: 150 },
+      { key: 'qty', label: 'Quantity', w: 80 },
+      { key: 'iqd', label: 'Real Cost (IQD)', w: 150 },
+    ];
+
+    // Draws the export table by hand on a <canvas> instead of rasterizing an off-DOM HTML
+    // table via html2canvas — html2canvas's "clone the page into a hidden iframe" technique
+    // turned out to be unreliable inside this app's Android WebView ("Unable to find element
+    // in cloned iframe", reproducible even with the element kept fully on-screen), so PDF/PNG
+    // draw directly here. Excel stays a real ExcelJS workbook, built separately below.
+    async function _buildOrderExportCanvas(o) {
+      const { rows, totalQty, totalRealIqd } = _orderExportRows(o);
+      const cols = _ORDER_EXPORT_COLS;
+      const totalW = cols.reduce((s, c) => s + c.w, 0);
+      const pad = 14, titleH = 60, headerH = 44, rowH = 100, totalRowH = 46;
+      const canvasW = totalW + pad * 2;
+      const canvasH = titleH + headerH + rows.length * rowH + totalRowH + pad;
+      const scale = 2;
+      const canvas = document.createElement('canvas');
+      canvas.width = canvasW * scale;
+      canvas.height = canvasH * scale;
+      const ctx = canvas.getContext('2d');
+      ctx.scale(scale, scale);
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, canvasW, canvasH);
+      ctx.textBaseline = 'middle';
+
+      ctx.fillStyle = '#111';
+      ctx.font = '900 20px Arial, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(o.name || 'Order', canvasW / 2, 26);
+      ctx.fillStyle = '#666';
+      ctx.font = '12px Arial, sans-serif';
+      ctx.fillText(o.purchaseDate || '', canvasW / 2, 46);
+
+      let y = titleH;
+      ctx.fillStyle = '#e4e1fb';
+      ctx.fillRect(pad, y, totalW, headerH);
+      ctx.strokeStyle = '#333'; ctx.lineWidth = 1;
+      ctx.fillStyle = '#222';
+      ctx.font = '800 13px Arial, sans-serif';
+      let x = pad;
+      for (const c of cols) { ctx.strokeRect(x, y, c.w, headerH); ctx.fillText(c.label, x + c.w / 2, y + headerH / 2); x += c.w; }
+      y += headerH;
+
+      // Preload every row photo + platform icon up front, in parallel, before drawing anything.
+      const photos = await Promise.all(rows.map(({ it }) => it.imageUrl ? _loadImageEl(optimizedCloudinaryUrl(it.imageUrl, '200x200'), true) : Promise.resolve(null)));
+      const icons = await Promise.all(rows.map(({ it }) => _platformIconImageEl(it.storePlatform)));
+
+      rows.forEach(({ it, unitCny, unitUsd, qty, realCostIqd }, i) => {
+        const rowTop = y;
+        x = pad;
+        ctx.strokeStyle = '#333';
+        for (const c of cols) { ctx.strokeRect(x, rowTop, c.w, rowH); x += c.w; }
+        x = pad;
+
+        if (photos[i]) _drawImageCover(ctx, photos[i], x + 10, rowTop + 10, cols[0].w - 20, rowH - 20);
+        x += cols[0].w;
+
+        ctx.fillStyle = '#111'; ctx.font = '700 13px Arial, sans-serif'; ctx.textAlign = 'center';
+        ctx.fillText(it.code || '', x + cols[1].w / 2, rowTop + rowH / 2);
+        x += cols[1].w;
+
+        // Store cell: platform icon on top, platform name underneath — same spot the Excel
+        // sheet puts the icon + link, so PDF/PNG and Excel read the same way at a glance.
+        const storeCx = x + cols[2].w / 2;
+        if (icons[i]) ctx.drawImage(icons[i], storeCx - 16, rowTop + 10, 32, 32);
+        ctx.fillStyle = '#333'; ctx.font = '700 12px Arial, sans-serif';
+        ctx.fillText(it.storePlatform || '', storeCx, rowTop + (icons[i] ? 58 : rowH / 2));
+        x += cols[2].w;
+
+        ctx.font = '13px Arial, sans-serif'; ctx.fillStyle = '#111';
+        ctx.fillText('¥' + orderMoney(unitCny), x + cols[3].w / 2, rowTop + rowH / 2);
+        x += cols[3].w;
+        ctx.fillText('$' + orderMoney(unitUsd), x + cols[4].w / 2, rowTop + rowH / 2);
+        x += cols[4].w;
+
+        const sizes = it.sizes || [];
+        ctx.font = '11px Arial, sans-serif';
+        const lineH = 14;
+        const startY = rowTop + rowH / 2 - ((sizes.length - 1) * lineH) / 2;
+        sizes.forEach((s, si) => ctx.fillText(String(s), x + cols[5].w / 2, startY + si * lineH));
+        x += cols[5].w;
+
+        ctx.font = '800 16px Arial, sans-serif';
+        ctx.fillText(String(qty), x + cols[6].w / 2, rowTop + rowH / 2);
+        x += cols[6].w;
+
+        ctx.font = '800 13px Arial, sans-serif';
+        ctx.fillText(orderMoney(realCostIqd) + ' IQD', x + cols[7].w / 2, rowTop + rowH / 2);
+
+        y += rowH;
+      });
+
+      // Totals row — filled + bold so it reads as the one line that matters most on the page.
+      ctx.fillStyle = '#fde8df';
+      ctx.fillRect(pad, y, totalW, totalRowH);
+      const qtyColX = pad + cols.slice(0, 6).reduce((s, c) => s + c.w, 0);
+      ctx.strokeStyle = '#333';
+      ctx.strokeRect(pad, y, qtyColX - pad, totalRowH);
+      ctx.strokeRect(qtyColX, y, cols[6].w, totalRowH);
+      ctx.strokeRect(qtyColX + cols[6].w, y, cols[7].w, totalRowH);
+      ctx.fillStyle = '#e85d3a'; ctx.font = '900 16px Arial, sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillText('TOTAL', pad + 12, y + totalRowH / 2);
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#111';
+      ctx.fillText(String(totalQty), qtyColX + cols[6].w / 2, y + totalRowH / 2);
+      ctx.fillStyle = '#e85d3a';
+      ctx.fillText(orderMoney(totalRealIqd) + ' IQD', qtyColX + cols[6].w + cols[7].w / 2, y + totalRowH / 2);
+
       return canvas;
     }
 
@@ -10069,7 +10160,7 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
       if (!currentOrder) return;
       showToast('Generating image…', 'info');
       try {
-        const canvas = await _rasterizeOrderTable(currentOrder);
+        const canvas = await _buildOrderExportCanvas(currentOrder);
         const blob = await new Promise(res => canvas.toBlob(res, 'image/png'));
         const name = buildDownloadFilename(currentOrder.name || 'order', 'png');
         const savedNatively = await window.saveBlobToDevice(blob, name, false);
@@ -10082,7 +10173,7 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
       if (!currentOrder) return;
       showToast('Generating PDF…', 'info');
       try {
-        const canvas = await _rasterizeOrderTable(currentOrder);
+        const canvas = await _buildOrderExportCanvas(currentOrder);
         await _loadExportLib('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js', () => window.jspdf);
         const { jsPDF } = window.jspdf;
         const imgData = canvas.toDataURL('image/jpeg', 0.95);
@@ -10109,24 +10200,14 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
 
     // Renders one of the app's own platform icons (stored as inline SVG data-URIs, which
     // ExcelJS can't embed directly) to a small PNG buffer so it can go inside a cell.
-    function _platformIconPngBuffer(platformName) {
-      const needle = (platformName || '').trim().toLowerCase();
-      if (!needle) return Promise.resolve(null);
-      let k = CATALOG_PLATFORM_ICONS[needle] ? needle : null;
-      if (!k) k = Object.keys(PLATFORM_LABELS).find(x => PLATFORM_LABELS[x].toLowerCase() === needle) || null;
-      const src = k ? CATALOG_PLATFORM_ICONS[k] : null;
-      if (!src) return Promise.resolve(null);
-      return new Promise((resolve) => {
-        const img = new Image();
-        img.onload = () => {
-          const canvas = document.createElement('canvas');
-          canvas.width = 48; canvas.height = 48;
-          canvas.getContext('2d').drawImage(img, 0, 0, 48, 48);
-          canvas.toBlob(blob => { if (!blob) { resolve(null); return; } blob.arrayBuffer().then(resolve); }, 'image/png');
-        };
-        img.onerror = () => resolve(null);
-        img.src = src;
-      });
+    async function _platformIconPngBuffer(platformName) {
+      const img = await _platformIconImageEl(platformName);
+      if (!img) return null;
+      const canvas = document.createElement('canvas');
+      canvas.width = 48; canvas.height = 48;
+      canvas.getContext('2d').drawImage(img, 0, 0, 48, 48);
+      const blob = await new Promise(res => canvas.toBlob(res, 'image/png'));
+      return blob ? blob.arrayBuffer() : null;
     }
 
     window.exportOrderExcel = async function() {
@@ -10195,13 +10276,22 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
           }
           rIdx++;
         }
+        // Totals row — brand-orange fill + larger bold text so it visibly stands out as the
+        // one line that matters most, instead of blending into the rest of the grid.
         const totalRow = ws.addRow({ code: 'TOTAL', qty: totalQty, iqd: Math.round(totalRealIqd) });
-        totalRow.height = 22;
-        totalRow.font = { bold: true };
+        totalRow.height = 28;
         totalRow.getCell('iqd').numFmt = '#,##0 "IQD"';
+        ws.mergeCells(`A${totalRow.number}:B${totalRow.number}`);
         ws.mergeCells(`C${totalRow.number}:F${totalRow.number}`);
         totalRow.getCell('code').alignment = { horizontal: 'center', vertical: 'middle' };
-        totalRow.eachCell({ includeEmpty: true }, c => { c.border = thinBorder; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF3F4F6' } }; });
+        totalRow.getCell('code').font = { bold: true, size: 13, color: { argb: 'FFE85D3A' } };
+        totalRow.getCell('qty').font = { bold: true, size: 13 };
+        totalRow.getCell('iqd').font = { bold: true, size: 13, color: { argb: 'FFE85D3A' } };
+        totalRow.eachCell({ includeEmpty: true }, c => {
+          c.border = { top: { style: 'medium' }, left: { style: 'thin' }, bottom: { style: 'medium' }, right: { style: 'thin' } };
+          c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFDE8DF' } };
+          c.alignment = { horizontal: 'center', vertical: 'middle' };
+        });
 
         const buf = await wb.xlsx.writeBuffer();
         const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
