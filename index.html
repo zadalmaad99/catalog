@@ -10248,7 +10248,7 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
         qty: (x, w, rowTop, d) => { ctx.font = '800 16px Arial, sans-serif'; ctx.fillStyle = '#111'; ctx.textAlign = 'center'; ctx.fillText(String(d.qty), x + w / 2, rowTop + rowH / 2); },
         cny: (x, w, rowTop, d) => { ctx.font = '13px Arial, sans-serif'; ctx.fillStyle = '#111'; ctx.textAlign = 'center'; ctx.fillText('¥' + orderMoney(d.unitCny), x + w / 2, rowTop + rowH / 2); },
         usd: (x, w, rowTop, d) => { ctx.font = '13px Arial, sans-serif'; ctx.fillStyle = '#111'; ctx.textAlign = 'center'; ctx.fillText('$' + orderMoney(d.unitUsd), x + w / 2, rowTop + rowH / 2); },
-        iqd: (x, w, rowTop, d) => { ctx.font = '800 13px Arial, sans-serif'; ctx.fillStyle = '#111'; ctx.textAlign = 'center'; ctx.fillText(orderMoney(d.realCostIqd) + ' IQD', x + w / 2, rowTop + rowH / 2); },
+        iqd: (x, w, rowTop, d) => { ctx.font = '800 13px Arial, sans-serif'; ctx.fillStyle = '#111'; ctx.textAlign = 'center'; ctx.fillText(orderMoney(d.realCostIqd), x + w / 2, rowTop + rowH / 2); },
       };
 
       rows.forEach((d, i) => {
@@ -10275,7 +10275,7 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
       ctx.textAlign = 'center';
       for (const c of totalBearing) {
         if (c.key === 'qty') { ctx.fillStyle = '#111'; ctx.fillText(String(totalQty), colX[c.key] + c.w / 2, y + totalRowH / 2); }
-        if (c.key === 'iqd') { ctx.fillStyle = '#e85d3a'; ctx.fillText(orderMoney(totalRealIqd) + ' IQD', colX[c.key] + c.w / 2, y + totalRowH / 2); }
+        if (c.key === 'iqd') { ctx.fillStyle = '#e85d3a'; ctx.fillText(orderMoney(totalRealIqd), colX[c.key] + c.w / 2, y + totalRowH / 2); }
       }
 
       return canvas;
@@ -10404,7 +10404,7 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
           row.eachCell(c => { c.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true }; c.border = thinBorder; });
           if (has('cny')) row.getCell('cny').numFmt = '"¥"#,##0.00';
           if (has('usd')) row.getCell('usd').numFmt = '"$"#,##0.00';
-          if (has('iqd')) row.getCell('iqd').numFmt = '#,##0 "IQD"';
+          if (has('iqd')) row.getCell('iqd').numFmt = '#,##0';
           // Store/Link cell: platform icon pinned near the top, platform NAME as a short
           // clickable link underneath — not the raw URL, which just read as an ugly
           // wall-of-text; the whole name is the link, so it's just as clickable either way.
@@ -10452,7 +10452,7 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
         if (has('iqd')) totalRowData.iqd = Math.round(totalRealIqd);
         const totalRow = ws.addRow(totalRowData);
         totalRow.height = 30;
-        if (has('iqd')) totalRow.getCell('iqd').numFmt = '#,##0 "IQD"';
+        if (has('iqd')) totalRow.getCell('iqd').numFmt = '#,##0';
         const totalBearing = cols.filter(c => c.key === 'qty' || c.key === 'iqd');
         const firstTotalIdx = totalBearing.length ? cols.findIndex(c => c.key === totalBearing[0].key) : -1;
         if (firstTotalIdx > 0) {
