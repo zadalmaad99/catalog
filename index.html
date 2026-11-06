@@ -156,6 +156,12 @@
     .od-platform-btn.active { border-color: #e85d3a; }
     .od-platform-icon { width: 22px; height: 22px; border-radius: 50%; object-fit: cover; flex-shrink: 0; }
     .od-input-with-icon { display: flex; align-items: center; gap: 6px; }
+    .od-currency-toggle { display: flex; border: 1px solid #e5d9cf; border-radius: 8px; overflow: hidden; flex-shrink: 0; }
+    .od-currency-toggle button {
+      border: none; background: #fff; color: #9ca3af; font-size: 0.7rem; font-weight: 800;
+      padding: 0 8px; height: 36px; cursor: pointer;
+    }
+    .od-currency-toggle button.active { background: #e85d3a; color: #fff; }
     .od-input-with-icon .od-input { flex: 1; }
     /* The collapsed "linked platform" button — replaces the picker + both text inputs once a
        link is set: tap opens it (window.odPress*), long-press edits it. */
@@ -2677,8 +2683,19 @@ service cloud.firestore {
           </select>
         </div>
         <div>
-          <label class="block text-xs font-bold text-gray-600 mb-1" data-i18n="shippingTotal">Total Shipping Cost ($)</label>
-          <input id="od-shipping-price" type="number" step="0.01" min="0" class="h-9 px-2 rounded-lg border border-gray-200 bg-white text-sm w-28" onchange="window.saveOrderShippingPrice(this.value)" />
+          <label class="block text-xs font-bold text-gray-600 mb-1" data-i18n="shippingTotal">Total Shipping Cost</label>
+          <div style="display:flex;gap:4px;">
+            <input id="od-shipping-price" type="number" step="0.01" min="0" class="h-9 px-2 rounded-lg border border-gray-200 bg-white text-sm w-28" onchange="window.saveOrderShippingPrice(this.value)" />
+            <!-- Shipping is usually quoted in whichever currency the shipper gave, and that's
+                 often IQD, not $ — this toggle picks which one the number above is in. The order
+                 still stores shippingTotalUsd internally either way (everything downstream is
+                 computed through USD before the final ×IQD-rate step); entering IQD here just
+                 converts on the way in/out using the order's own IQD-per-$1 rate above. -->
+            <div class="od-currency-toggle">
+              <button type="button" id="od-ship-cur-usd" class="active" onclick="window.setShippingCurrency('usd')">$</button>
+              <button type="button" id="od-ship-cur-iqd" onclick="window.setShippingCurrency('iqd')">IQD</button>
+            </div>
+          </div>
         </div>
         <p class="text-xs text-gray-400 flex-1" style="min-width:200px;" data-i18n="shippingHint">Added to each item's real cost, shown in IQD, in its own column.</p>
       </div>
@@ -4234,7 +4251,7 @@ service cloud.firestore {
         orderNamePh: 'اسم الطلب', purchaseDate: 'تاريخ الشراء', receiveDate: 'تاريخ الاستلام',
         cnyRate: '¥ مقابل $1 (يوان/دولار)', iqdRate: 'دينار مقابل $1',
         shippingMode: 'طريقة النقل', shippingNone: '—', shippingSea: 'بحري', shippingAir: 'جوي', shippingLand: 'بري',
-        shippingPerPiece: 'سعر النقل لكل قطعة ($)', shippingTotal: 'إجمالي سعر النقل ($)',
+        shippingPerPiece: 'سعر النقل لكل قطعة ($)', shippingTotal: 'إجمالي سعر النقل',
         shippingHint: 'يُقسَّم على كل القطع بنسبة كميتها، ويُضاف لتكلفة كل موديل الحقيقية بالدينار.',
         colPicture: 'الصورة', colStore: 'المتجر / المنصة', colUnitCny: 'سعر القطعة ¥', colUnitUsd: '≈ $',
         colSizes: 'المقاسات', colQty: 'الكمية', colShipPc: 'نقل/قطعة $', colRealCost: 'التكلفة الحقيقية (دينار)',
@@ -4402,7 +4419,7 @@ service cloud.firestore {
         orderNamePh: 'ناوی داواکاری', purchaseDate: 'بەرواری کڕین', receiveDate: 'بەرواری وەرگرتن',
         cnyRate: '¥ بەرامبەر $1 (یوان/دۆلار)', iqdRate: 'دینار بەرامبەر $1',
         shippingMode: 'شێوازی گواستنەوە', shippingNone: '—', shippingSea: 'دەریایی', shippingAir: 'ئاسمانی', shippingLand: 'وشکانی',
-        shippingPerPiece: 'نرخی گواستنەوە بۆ هەر دانەیەک ($)', shippingTotal: 'کۆی نرخی گواستنەوە ($)',
+        shippingPerPiece: 'نرخی گواستنەوە بۆ هەر دانەیەک ($)', shippingTotal: 'کۆی نرخی گواستنەوە',
         shippingHint: 'بەسەر هەموو دانەکاندا دابەش دەکرێت بەگوێرەی ژمارەیان، و زیاد دەکرێت بۆ تێچووی ڕاستەقینەی هەر مۆدێلێک بە دینار.',
         colPicture: 'وێنە', colStore: 'فرۆشگا / پلاتفۆرم', colUnitCny: 'نرخی دانە ¥', colUnitUsd: '≈ $',
         colSizes: 'قەبارەکان', colQty: 'ژمارە', colShipPc: 'گواستنەوە/دانە $', colRealCost: 'تێچووی ڕاستەقینە (دینار)',
@@ -4570,7 +4587,7 @@ service cloud.firestore {
         orderNamePh: 'Order name', purchaseDate: 'Purchase Date', receiveDate: 'Receive Date',
         cnyRate: '¥ per $1 (CNY/USD)', iqdRate: 'IQD per $1',
         shippingMode: 'Shipping Mode', shippingNone: '—', shippingSea: 'Sea', shippingAir: 'Air', shippingLand: 'Land',
-        shippingPerPiece: 'Shipping per piece ($)', shippingTotal: 'Total Shipping Cost ($)',
+        shippingPerPiece: 'Shipping per piece ($)', shippingTotal: 'Total Shipping Cost',
         shippingHint: "Split across every piece by quantity, then added to each item's real cost, shown in IQD.",
         colPicture: 'Picture', colStore: 'Store / Platform', colUnitCny: 'Unit Price ¥', colUnitUsd: '≈ $',
         colSizes: 'Sizes', colQty: 'Qty', colShipPc: 'Ship/pc $', colRealCost: 'Real Cost IQD',
@@ -9876,7 +9893,14 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
       document.getElementById('od-cny-rate').value = o.cnyRate || '';
       document.getElementById('od-iqd-rate').value = o.usdToIqdRate || '';
       document.getElementById('od-shipping-mode').value = o.shippingMode || '';
-      document.getElementById('od-shipping-price').value = o.shippingTotalUsd || '';
+      const shipCur = o.shippingCurrency === 'iqd' ? 'iqd' : 'usd';
+      document.getElementById('od-ship-cur-usd').classList.toggle('active', shipCur === 'usd');
+      document.getElementById('od-ship-cur-iqd').classList.toggle('active', shipCur === 'iqd');
+      const shippingTotalUsd = parseFloat(o.shippingTotalUsd) || 0;
+      const iqdRateForShip = parseFloat(o.usdToIqdRate) || 0;
+      document.getElementById('od-shipping-price').value = shippingTotalUsd
+        ? (shipCur === 'iqd' ? Math.round(shippingTotalUsd * iqdRateForShip) : shippingTotalUsd)
+        : '';
       const receiveActions = document.getElementById('od-receive-actions');
       if (receiveActions) receiveActions.classList.toggle('hidden', !o.receiveDate);
       renderOrderRows();
@@ -10010,35 +10034,54 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
       } catch(e) { console.error(e); showToast('An error occurred while saving', 'error'); }
     };
 
-    window.saveOrderShippingPrice = async function(value) {
-      const v = parseFloat(value) || 0;
-      if (v > 0 && !(currentOrder && currentOrder.shippingMode)) {
+    // Shipping is commonly quoted in IQD (whatever the local shipper charges), not $ — this
+    // toggle just picks which currency the number in the field is in; shippingTotalUsd stays
+    // the one value actually stored (everything downstream is computed through USD before the
+    // final ×IQD-rate step either way), converted on the way in/out using the order's own
+    // usdToIqdRate. Switching currency re-reads the field under its NEW unit via
+    // renderOrderDetail, it doesn't convert whatever's currently typed in the box.
+    window.setShippingCurrency = function(cur) {
+      if (!currentOrder) return;
+      window.saveOrderField('shippingCurrency', cur === 'iqd' ? 'iqd' : 'usd');
+    };
+    window.saveOrderShippingPrice = async function(rawValue) {
+      if (!currentOrder) return;
+      const entered = parseFloat(rawValue) || 0;
+      const isIqd = currentOrder.shippingCurrency === 'iqd';
+      const iqdRate = parseFloat(currentOrder.usdToIqdRate) || 0;
+      if (isIqd && entered > 0 && iqdRate <= 0) {
+        showToast('Set the IQD per $1 rate above first', 'error');
+        renderOrderDetail(); // reset the field — we can't convert/save it without a rate
+        return;
+      }
+      const v = isIqd ? entered / iqdRate : entered; // normalized to USD for storage either way
+      if (v > 0 && !currentOrder.shippingMode) {
         showToast('Pick a shipping mode first', 'error');
       }
-      if (v > 0 && currentOrder) {
+      if (v > 0) {
         const items = currentOrder.items || [];
         const totalQty = items.reduce((s, it) => s + (parseInt(it.quantity) || 0), 0);
         const perPiece = totalQty > 0 ? v / totalQty : v;
         const cnyRate = parseFloat(currentOrder.cnyRate) || 0;
         const unitUsds = items.map(it => cnyRate > 0 ? (parseFloat(it.unitPriceCny) || 0) / cnyRate : 0).filter(n => n > 0);
         const avgUnitUsd = unitUsds.length ? unitUsds.reduce((a, b) => a + b, 0) / unitUsds.length : 0;
-        // Sanity check, not a hard cap: this exact mistake (typing the IQD-scale number into a
-        // $ field meant for the WHOLE order's shipping, not realizing it gets divided per piece)
-        // has happened before and silently produced a wildly wrong real cost — so when the
-        // resulting per-piece shipping share would dwarf what the items themselves cost, ask
-        // before saving instead of only showing a toast that's easy to not notice.
+        // Sanity check, not a hard cap: picking the wrong currency here (or just a typo) has
+        // produced a wildly inflated real cost before — so when the resulting per-piece shipping
+        // share would dwarf what the items themselves cost, ask before saving instead of only
+        // showing a toast that's easy to not notice.
         if (perPiece > Math.max(avgUnitUsd * 5, 20)) {
+          const enteredLabel = isIqd ? `${orderMoney(entered)} IQD` : `$${orderMoney(entered)}`;
           const ok = await window.odConfirm(
-            `That's $${orderMoney(v)} total ÷ ${totalQty} pieces = $${orderMoney(perPiece)} in shipping PER PIECE — much more than the items' own ~$${orderMoney(avgUnitUsd)} each. Make sure $${orderMoney(v)} is the TOTAL for the whole shipment (in US dollars, not IQD) and not a per-piece amount. Save anyway?`,
+            `That's ${enteredLabel} total ÷ ${totalQty} pieces = $${orderMoney(perPiece)} in shipping PER PIECE — much more than the items' own ~$${orderMoney(avgUnitUsd)} each. Make sure ${enteredLabel} is the TOTAL for the whole shipment, in the currency you picked ($ or IQD), and not a per-piece amount. Save anyway?`,
             { danger: true }
           );
-          if (!ok) return;
+          if (!ok) { renderOrderDetail(); return; }
         }
       }
       window.saveOrderField('shippingTotalUsd', v);
-      if (v > 0 && currentOrder) {
+      if (v > 0) {
         const perPiece = orderShipPerPiece(currentOrder);
-        showToast(`⚠️ $${orderMoney(v)} total ≈ $${orderMoney(perPiece)}/piece will be added to each item's real cost (IQD)`, 'success');
+        showToast(`⚠️ ${isIqd ? orderMoney(entered)+' IQD' : '$'+orderMoney(v)} total ≈ $${orderMoney(perPiece)}/piece will be added to each item's real cost (IQD)`, 'success');
       }
     };
 
