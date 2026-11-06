@@ -152,20 +152,22 @@
     }
     .od-input {
       width: 100%; border: 1px solid #ececec; border-radius: 8px; padding: 6px 9px;
-      font-size: 0.78rem; font-weight: 600; color: #374151; background: #fcfcfc;
+      font-size: 0.78rem; font-weight: 600; color: #374151; background: #fff;
       transition: border-color 0.15s;
     }
     .od-input:focus { outline: none; border-color: #e85d3a; background: #fff; }
     .od-input-strong { font-weight: 800; color: #1a1a2e; font-size: 0.82rem; }
     .od-input-muted { font-size: 0.7rem; color: #9ca3af; }
     .od-input-num { text-align: center; font-weight: 800; }
-    .od-size-chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 10px; }
-    .od-size-chip {
-      font-size: 0.65rem; font-weight: 700; color: #0369a1; background: #e0f2fe;
-      border-radius: 999px; padding: 2px 8px;
+    /* The numbers grid gets its own soft panel (background + radius), set apart from the
+       identity row above it by a hairline — one clear "this part is the photo/link, this part
+       is the numbers" split, instead of every field just floating in the same column. */
+    .od-item-grid {
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;
+      margin-top: 12px; padding: 10px 8px 8px; border-top: 1px solid #f4ece6;
+      background: #fcfaf9; border-radius: 12px;
     }
-    .od-item-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 10px; }
-    .od-item-field { display: flex; flex-direction: column; gap: 3px; }
+    .od-item-field { display: flex; flex-direction: column; gap: 4px; }
     .od-item-field-label { font-size: 0.6rem; font-weight: 800; color: #b0b7c3; text-transform: uppercase; text-align: center; }
     .od-item-static { text-align: center; font-weight: 800; color: #6b7280; font-size: 0.8rem; padding: 6px 0; }
     .od-item-cost {
@@ -9739,9 +9741,6 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
           const img = it.imageUrl
             ? `<img src="${escapeHtml(optimizedCloudinaryUrl(it.imageUrl,'400x400'))}" class="od-item-img" />`
             : `<span class="od-item-img od-item-img-empty">🖼️</span>`;
-          const sizesHTML = (it.sizes||[]).length
-            ? `<div class="od-size-chips">${it.sizes.map(s=>`<span class="od-size-chip">${escapeHtml(s)}</span>`).join('')}</div>`
-            : '';
           // Once a link is set, this whole block collapses into one "linked" pill (icon + platform
           // name) — tap opens the link, press-and-hold edits it — instead of leaving the full
           // picker on screen forever. Before that, it's a single scrollable icon row (never wraps
@@ -9774,7 +9773,6 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
               </button>
             </div>
-            ${sizesHTML}
             <div class="od-item-grid">
               <div class="od-item-field">
                 <span class="od-item-field-label">${escapeHtml(window.t?window.t('colUnitCny'):'Unit Price ¥')}</span>
