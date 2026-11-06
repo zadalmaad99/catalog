@@ -114,8 +114,15 @@
       display: flex; align-items: center; justify-content: center;
       background: #f9fafb; font-size: 1.8rem;
     }
-    .od-item-store { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; justify-content: center; }
-    .od-platform-picker { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 2px; }
+    .od-item-store { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; justify-content: center; }
+    /* Never wraps to a 2nd line — scrolls sideways instead, so a 7-icon picker stays one tidy
+       row regardless of card width (wrapping was what made the "not linked yet" state look
+       cluttered/uneven next to the photo). */
+    .od-platform-picker {
+      display: flex; flex-wrap: nowrap; gap: 6px; overflow-x: auto;
+      -webkit-overflow-scrolling: touch; scrollbar-width: none; padding-bottom: 1px;
+    }
+    .od-platform-picker::-webkit-scrollbar { display: none; }
     .od-platform-btn {
       width: 32px; height: 32px; border-radius: 50%; border: 1.5px solid transparent;
       padding: 0; background: #f6f6f6; display: flex; align-items: center; justify-content: center;
@@ -152,7 +159,7 @@
     .od-input-strong { font-weight: 800; color: #1a1a2e; font-size: 0.82rem; }
     .od-input-muted { font-size: 0.7rem; color: #9ca3af; }
     .od-input-num { text-align: center; font-weight: 800; }
-    .od-size-chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 2px; }
+    .od-size-chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 10px; }
     .od-size-chip {
       font-size: 0.65rem; font-weight: 700; color: #0369a1; background: #e0f2fe;
       border-radius: 999px; padding: 2px 8px;
@@ -9735,9 +9742,11 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
           const sizesHTML = (it.sizes||[]).length
             ? `<div class="od-size-chips">${it.sizes.map(s=>`<span class="od-size-chip">${escapeHtml(s)}</span>`).join('')}</div>`
             : '';
-          // Once a link is set, the picker row + both text inputs collapse into one big "linked"
-          // button for just that platform — tap opens the link, press-and-hold edits it — instead
-          // of leaving the full editing UI (and every other platform icon) on screen forever.
+          // Once a link is set, this whole block collapses into one "linked" pill (icon + platform
+          // name) — tap opens the link, press-and-hold edits it — instead of leaving the full
+          // picker on screen forever. Before that, it's a single scrollable icon row (never wraps
+          // to a second line) plus one link input — no separate "platform name" text field, since
+          // tapping an icon already records the platform; typing the link is the only step left.
           const storeHTML = (it.storeLink || '').trim()
             ? `<button type="button" class="od-platform-linked"
                  onmousedown="window.odPressStart(${idx})" onmouseup="window.odPressEnd(${idx})" onmouseleave="window.odPressCancel()"
@@ -9749,11 +9758,7 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
             : `<div class="od-platform-picker">
                  ${Object.keys(PLATFORM_LABELS).map(k => `<button type="button" class="od-platform-btn${(it.storePlatform||'').trim().toLowerCase()===k?' active':''}" title="${escapeHtml(PLATFORM_LABELS[k])}" onclick="window.updateOrderItem(${idx},'storePlatform','${PLATFORM_LABELS[k]}')">${platformIconHTML(k)}</button>`).join('')}
                </div>
-               <div class="od-input-with-icon">
-                 ${platformIconHTML(it.storePlatform)}
-                 <input class="od-input od-input-strong" value="${escapeHtml(it.storePlatform||'')}" placeholder="${escapeHtml(window.t?window.t('storePlatformPh'):'1688 / Taobao…')}" onchange="window.updateOrderItem(${idx},'storePlatform',this.value)" />
-               </div>
-               <input class="od-input od-input-muted" value="" placeholder="${escapeHtml(window.t?window.t('storeLinkPh'):'Link')}" onchange="window.updateOrderItem(${idx},'storeLink',this.value)" />`;
+               <input class="od-input" value="" placeholder="${escapeHtml(window.t?window.t('storeLinkPh'):'Link')}" onchange="window.updateOrderItem(${idx},'storeLink',this.value)" />`;
 
           return `
           <div class="od-item-card">
@@ -9764,12 +9769,12 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
               </label>
               <div class="od-item-store">
                 ${storeHTML}
-                ${sizesHTML}
               </div>
               <button onclick="window.removeOrderItem(${idx})" class="od-item-remove" title="Remove">
                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
               </button>
             </div>
+            ${sizesHTML}
             <div class="od-item-grid">
               <div class="od-item-field">
                 <span class="od-item-field-label">${escapeHtml(window.t?window.t('colUnitCny'):'Unit Price ¥')}</span>
