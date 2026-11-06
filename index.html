@@ -2654,8 +2654,11 @@ service cloud.firestore {
       <div id="od-rows" class="od-items"></div>
       <div class="flex gap-2 mt-3">
         <button onclick="window.addOrderItem()" class="h-11 px-4 rounded-2xl border-2 border-dashed border-orange-200 text-[#e85d3a] text-sm font-bold flex-1 bg-orange-50/40 hover:bg-orange-50 transition-colors" data-i18n="addItem">+ Add Item</button>
-        <label class="h-11 px-4 rounded-2xl border-2 border-dashed border-orange-200 text-[#e85d3a] text-sm font-bold flex-1 bg-orange-50/40 hover:bg-orange-50 transition-colors flex items-center justify-center cursor-pointer" data-i18n="addItemsFromPhotos">
-          + Add Color Variants
+        <label class="h-11 px-4 rounded-2xl border-2 border-dashed border-orange-200 text-[#e85d3a] text-sm font-bold flex-1 bg-orange-50/40 hover:bg-orange-50 transition-colors flex items-center justify-center cursor-pointer">
+          <!-- data-i18n goes on this inner span, not the <label> itself — the i18n applier does
+               el.textContent = translation, which would silently wipe out the <input> below too
+               if it sat on the label, leaving the button looking fine but doing nothing on tap. -->
+          <span data-i18n="addItemsFromPhotos">+ Add Color Variants</span>
           <input type="file" accept="image/*" multiple class="hidden" onchange="window.addOrderItemsFromPhotos(this)" />
         </label>
       </div>
