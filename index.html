@@ -10010,8 +10010,18 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
 
     function _buildOrderExportTableEl(o) {
       const { rows, totalQty, totalRealIqd } = _orderExportRows(o);
+      // html2canvas clones the page into a hidden iframe and looks the target element up there
+      // by its on-screen position — an element parked off-screen via a huge negative left (the
+      // usual "hide it" trick) falls outside what that clone reproduces and throws "Unable to
+      // find element in cloned iframe". `wrap` is a full-screen overlay so the content stays
+      // inside the real viewport; `content` (the actual html2canvas target) keeps its own fixed
+      // width so the table doesn't get squeezed to a narrow phone screen. Both are only attached
+      // for the instant it takes to rasterize.
       const wrap = document.createElement('div');
-      wrap.style.cssText = 'position:fixed;left:-99999px;top:0;background:#fff;padding:16px;width:900px;font-family:Arial,sans-serif;';
+      wrap.style.cssText = 'position:fixed;inset:0;z-index:99999;overflow:auto;background:#fff;';
+      const content = document.createElement('div');
+      content.style.cssText = 'background:#fff;padding:16px;width:900px;font-family:Arial,sans-serif;';
+      wrap.appendChild(content);
       const th = 'padding:8px 6px;background:#e4e1fb;font-weight:800;border:1px solid #333;font-size:13px;text-align:center;';
       const td = 'padding:6px;border:1px solid #333;font-size:12px;text-align:center;vertical-align:middle;';
       const rowsHtml = rows.map(({ it, unitCny, unitUsd, qty, realCostIqd }) => `
@@ -10025,7 +10035,7 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
           <td style="${td}font-weight:800;font-size:15px;">${qty}</td>
           <td style="${td}font-weight:800;">${orderMoney(realCostIqd)} IQD</td>
         </tr>`).join('');
-      wrap.innerHTML = `
+      content.innerHTML = `
         <div style="text-align:center;font-weight:900;font-size:20px;margin-bottom:4px;">${escapeHtml(o.name || 'Order')}</div>
         <div style="text-align:center;font-size:12px;color:#666;margin-bottom:12px;">${escapeHtml(o.purchaseDate || '')}</div>
         <table style="width:100%;border-collapse:collapse;">
@@ -10039,15 +10049,19 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
           </tbody>
         </table>`;
       document.body.appendChild(wrap);
-      return wrap;
+      return { wrap, content };
     }
 
     async function _rasterizeOrderTable(o) {
       await _loadExportLib('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js', () => window.html2canvas);
-      const el = _buildOrderExportTableEl(o);
-      await new Promise(r => setTimeout(r, 400)); // let <img> tags actually load before rasterizing
-      const canvas = await window.html2canvas(el, { backgroundColor: '#ffffff', scale: 2, useCORS: true });
-      el.remove();
+      const { wrap, content } = _buildOrderExportTableEl(o);
+      // Wait for every <img> in the table to actually finish loading (not a fixed guess-timeout)
+      // before rasterizing — Cloudinary images are fetched fresh here and can take longer than
+      // a flat delay on a slow connection, which is what was causing blank/broken photo cells.
+      const imgs = Array.from(content.querySelectorAll('img'));
+      await Promise.all(imgs.map(img => img.complete ? Promise.resolve() : new Promise(res => { img.onload = res; img.onerror = res; })));
+      const canvas = await window.html2canvas(content, { backgroundColor: '#ffffff', scale: 2, useCORS: true });
+      wrap.remove();
       return canvas;
     }
 
@@ -10061,7 +10075,7 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
         const savedNatively = await window.saveBlobToDevice(blob, name, false);
         if (!savedNatively) { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; a.click(); URL.revokeObjectURL(a.href); }
         showToast('Image downloaded ✓', 'success');
-      } catch (e) { console.error(e); showToast('Export failed', 'error'); }
+      } catch (e) { console.error(e); showToast('Export failed: ' + (e && e.message || e), 'error'); }
     };
 
     window.exportOrderPDF = async function() {
@@ -10090,7 +10104,7 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
         const savedNatively = await window.saveBlobToDevice(doc.output('blob'), name, false);
         if (!savedNatively) doc.save(name);
         showToast('PDF downloaded ✓', 'success');
-      } catch (e) { console.error(e); showToast('Export failed', 'error'); }
+      } catch (e) { console.error(e); showToast('Export failed: ' + (e && e.message || e), 'error'); }
     };
 
     window.exportOrderExcel = async function() {
@@ -10111,29 +10125,49 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
           { header: 'Quantity', key: 'qty', width: 10 },
           { header: 'Real Cost (IQD)', key: 'iqd', width: 16 },
         ];
+        const thinBorder = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
+        ws.views = [{ state: 'frozen', ySplit: 1 }];
         const headerRow = ws.getRow(1);
-        headerRow.font = { bold: true };
-        headerRow.eachCell(c => { c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE4E1FB' } }; c.alignment = { horizontal: 'center', vertical: 'middle' }; });
+        headerRow.height = 22;
+        headerRow.font = { bold: true, size: 11 };
+        headerRow.eachCell(c => {
+          c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE4E1FB' } };
+          c.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+          c.border = thinBorder;
+        });
 
         const { rows, totalQty, totalRealIqd } = _orderExportRows(currentOrder);
         let rIdx = 2;
         for (const { it, unitCny, unitUsd, qty, realCostIqd } of rows) {
           const row = ws.addRow({ pic: '', code: it.code || '', store: it.storePlatform || '', link: it.storeLink || '', cny: unitCny, usd: Math.round(unitUsd * 100) / 100, sizes: (it.sizes || []).join(', '), qty, iqd: Math.round(realCostIqd) });
-          row.height = 60;
-          row.eachCell(c => { c.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true }; });
+          row.height = 56;
+          row.eachCell(c => { c.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true }; c.border = thinBorder; });
+          row.getCell('cny').numFmt = '"¥"#,##0.00';
+          row.getCell('usd').numFmt = '"$"#,##0.00';
+          row.getCell('iqd').numFmt = '#,##0 "IQD"';
+          if (it.storeLink) {
+            const linkCell = row.getCell('link');
+            linkCell.value = { text: it.storeLink, hyperlink: it.storeLink };
+            linkCell.font = { color: { argb: 'FF2563EB' }, underline: true };
+          }
           if (it.imageUrl) {
             try {
               const resp = await fetch(optimizedCloudinaryUrl(it.imageUrl, '200x200'));
               const buf = await resp.arrayBuffer();
               const ext = /\.png($|\?)/i.test(it.imageUrl) ? 'png' : 'jpeg';
               const imgId = wb.addImage({ buffer: buf, extension: ext });
-              ws.addImage(imgId, { tl: { col: 0, row: rIdx - 1 }, ext: { width: 70, height: 70 } });
+              ws.addImage(imgId, { tl: { col: 0.08, row: rIdx - 1 + 0.08 }, ext: { width: 72, height: 72 } });
             } catch (e) { console.error('excel image embed failed', e); }
           }
           rIdx++;
         }
         const totalRow = ws.addRow({ code: 'TOTAL', qty: totalQty, iqd: Math.round(totalRealIqd) });
+        totalRow.height = 22;
         totalRow.font = { bold: true };
+        totalRow.getCell('iqd').numFmt = '#,##0 "IQD"';
+        ws.mergeCells(`B${totalRow.number}:F${totalRow.number}`);
+        totalRow.getCell('code').alignment = { horizontal: 'center', vertical: 'middle' };
+        totalRow.eachCell({ includeEmpty: true }, c => { c.border = thinBorder; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF3F4F6' } }; });
 
         const buf = await wb.xlsx.writeBuffer();
         const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
@@ -10141,7 +10175,7 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
         const savedNatively = await window.saveBlobToDevice(blob, name, false);
         if (!savedNatively) { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; a.click(); URL.revokeObjectURL(a.href); }
         showToast('Excel downloaded ✓', 'success');
-      } catch (e) { console.error(e); showToast('Export failed', 'error'); }
+      } catch (e) { console.error(e); showToast('Export failed: ' + (e && e.message || e), 'error'); }
     };
 
     function renderOrderRows() {
