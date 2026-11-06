@@ -10417,11 +10417,37 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
 
     // Renders one of the app's own platform icons (stored as inline SVG data-URIs, which
     // ExcelJS can't embed directly) to a small PNG buffer so it can go inside a cell.
-    // Solves for the fractional col/row ExcelJS's addImage needs so that ITS OWN (flat, not
-    // pixel-accurate) 10,000-EMU-per-char/per-point conversion produces the real pixel offset we
-    // actually want in the written file (9525 EMU per CSS px at 96dpi is the real OOXML unit).
-    function _excelColOffFrac(px, colWidthChars) { return (px * 9525) / ((colWidthChars || 8) * 10000); }
-    function _excelRowOffFrac(px, rowHeightPts) { return (px * 9525) / ((rowHeightPts || 15) * 10000); }
+    // ExcelJS's addImage has no reliable way to give an image a real pixel inset within its
+    // anchor cell: a literal colOff/rowOff field is silently ignored (confirmed by inspecting an
+    // exported file's drawing XML — every offset came back as exactly 0), and the alternative, a
+    // FRACTIONAL col/row, goes through ExcelJS's own flat "10,000 EMU per column-char (or
+    // per-row-point)" conversion — unrelated to the column's real pixel width. For a narrow inset
+    // that's merely wrong; for the icon's ~80px centering inset inside the (wide) Store column it
+    // overflowed a whole extra column, which is how the platform icon ended up floating over
+    // Quantity instead of Store. So: add every image at its plain integer col/row (no inset), then
+    // patch the real EMU inset directly into the written file's drawing XML afterward, which is
+    // what actually controls on-screen position once a real Excel/LibreOffice opens the file.
+    async function _patchExcelImageInsets(buf, picColChars, storeColChars) {
+      try {
+        if (!window.JSZip) await new Promise((res, rej) => { const s = document.createElement('script'); s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js'; s.onload = res; s.onerror = rej; document.head.appendChild(s); });
+        const zip = await window.JSZip.loadAsync(buf);
+        const drawingPath = Object.keys(zip.files).find(p => /xl\/drawings\/drawing\d+\.xml$/.test(p));
+        if (!drawingPath) return buf;
+        let xml = await zip.file(drawingPath).async('string');
+        const emuPx = px => Math.round(px * 9525);
+        const picColPx = picColChars ? Math.floor((256 * picColChars + Math.floor(128 / 7)) / 256 * 7) : null;
+        const storeColPx = storeColChars ? Math.floor((256 * storeColChars + Math.floor(128 / 7)) / 256 * 7) : null;
+        const picOffEMU = emuPx(4); // small flush-left inset, photo nearly fills the cell
+        const iconOffEMU = storeColPx ? emuPx(Math.max(0, (storeColPx - 36) / 2)) : 0; // centered over the link text below
+        xml = xml.replace(/<xdr:oneCellAnchor[\s\S]*?<\/xdr:oneCellAnchor>/g, block => {
+          if (/cx="800100" cy="800100"/.test(block)) return block.replace(/<xdr:colOff>\d+<\/xdr:colOff>/, `<xdr:colOff>${picOffEMU}</xdr:colOff>`);
+          if (/cx="342900" cy="342900"/.test(block)) return block.replace(/<xdr:colOff>\d+<\/xdr:colOff>/, `<xdr:colOff>${iconOffEMU}</xdr:colOff>`);
+          return block;
+        });
+        zip.file(drawingPath, xml);
+        return await zip.generateAsync({ type: 'arraybuffer' });
+      } catch (e) { console.error('excel image inset patch failed', e); return buf; }
+    }
 
     const _excelImageBufCache = new Map();
     async function _fetchExcelPhotoBuf(imageUrl) {
@@ -10538,28 +10564,17 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
           if (has('pic') && excelPhotoBufs[rowI]) {
             try {
               const imgId = wb.addImage({ buffer: excelPhotoBufs[rowI], extension: 'jpeg' });
-              // A literal `colOff`/`rowOff` field is silently ignored by this ExcelJS version's
-              // addImage (confirmed by inspecting a real exported file's drawing XML: every
-              // offset came back as exactly 0) — only a FRACTIONAL col/row does anything. And
-              // that fraction isn't scaled by the column's real pixel width either: ExcelJS's own
-              // conversion is a flat 10,000 EMU per column-char (or per row-point), unrelated to
-              // how wide the column actually renders. `_excelColOffFrac`/`_excelRowOffFrac` solve
-              // for the fraction that makes ExcelJS land on the real pixel offset we want.
-              const picColChars = ws.getColumn('pic') ? ws.getColumn('pic').width : 16;
-              ws.addImage(imgId, { tl: { col: _excelColOffFrac(4, picColChars), row: rIdx - 1 + _excelRowOffFrac(2, 86) }, ext: { width: 84, height: 84 } });
+              // Plain integer col/row here — see the big comment above `_patchExcelImageInsets`
+              // for why a fractional col can't be used to get a real pixel inset. The actual
+              // 4px/2px inset is patched into the raw XML after the workbook is written.
+              ws.addImage(imgId, { tl: { col: 0, row: rIdx - 1 }, ext: { width: 84, height: 84 } });
             } catch (e) { console.error('excel image embed failed', e); }
           }
           if (has('store')) {
             const iconBuf = excelIconBufs[rowI];
             if (iconBuf) {
               const iconId = wb.addImage({ buffer: iconBuf, extension: 'png' });
-              // Excel's own column-width-to-pixel formula (not a flat ×7) — used only to work out
-              // how many px to inset the icon so it's centered over the (shorter) link text below.
-              const storeColChars = ws.getColumn('store').width;
-              const storeColPx = Math.floor((256 * storeColChars + Math.floor(128 / 7)) / 256 * 7);
-              const iconSize = 36;
-              const iconLeftPx = Math.max(0, (storeColPx - iconSize) / 2);
-              ws.addImage(iconId, { tl: { col: storeColIdx + _excelColOffFrac(iconLeftPx, storeColChars), row: rIdx - 1 + _excelRowOffFrac(6, 86) }, ext: { width: iconSize, height: iconSize } });
+              ws.addImage(iconId, { tl: { col: storeColIdx, row: rIdx - 1 }, ext: { width: 36, height: 36 } });
             }
           }
           rIdx++;
@@ -10601,7 +10616,12 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
           if (!c.alignment) c.alignment = { horizontal: 'center', vertical: 'middle' };
         });
 
-        const buf = await wb.xlsx.writeBuffer();
+        let buf = await wb.xlsx.writeBuffer();
+        // Patch the real pixel insets into the raw drawing XML — see `_patchExcelImageInsets`'s
+        // own comment for why ExcelJS's own col/row-fraction API can't express these directly.
+        const picColChars = has('pic') && ws.getColumn('pic') ? ws.getColumn('pic').width : null;
+        const storeColChars = has('store') ? ws.getColumn('store').width : null;
+        buf = await _patchExcelImageInsets(buf, picColChars, storeColChars);
         const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
         const name = buildDownloadFilename(currentOrder.name || 'order', 'xlsx');
         const savedNatively = await window.saveBlobToDevice(blob, name, false);
