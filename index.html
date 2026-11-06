@@ -121,6 +121,17 @@
       -webkit-appearance: checkbox; appearance: checkbox;
       width: 20px; height: 20px; accent-color: #e85d3a; flex-shrink: 0;
     }
+    /* The column picker needs more room than a plain confirm dialog — a live preview image of
+       the actual table plus a scrollable checkbox list — so it gets its own wider/taller card
+       instead of the shared .od-dialog-card sizing. */
+    .od-export-cols-card { max-width: 480px; max-height: 88vh; overflow-y: auto; }
+    .od-export-cols-preview {
+      margin-top: 14px; border: 1px solid #f0e8e2; border-radius: 12px; overflow: auto;
+      max-height: 220px; background: #faf9f7; display: flex; align-items: center; justify-content: center;
+      min-height: 60px;
+    }
+    .od-export-cols-preview img { display: block; width: 100%; height: auto; }
+    .od-export-cols-preview-loading { font-size: 0.78rem; font-weight: 700; color: #9ca3af; padding: 18px; }
 
     /* Order-detail toolbar — on a phone-width screen the order name + the 4 action buttons
        (PDF/Excel/PNG/delete) don't fit on one line without crushing the name to a sliver, so
@@ -2836,9 +2847,15 @@ service cloud.firestore {
          Reuses the od-dialog-* classes (not the id, to stay independent of the confirm/prompt
          dialog above) so it looks like the same family of popup. -->
     <div id="od-export-cols-backdrop" class="od-dialog-backdrop hidden" onclick="if(event.target===this) window.closeOrderExportColsPicker()">
-      <div class="od-dialog-card">
+      <div class="od-dialog-card od-export-cols-card">
         <p class="od-dialog-message" data-i18n="exportColsPrompt">Choose columns to include</p>
         <div id="od-export-cols-list" style="display:flex;flex-direction:column;gap:10px;margin-top:14px;"></div>
+        <!-- Live preview of the actual table (same columns/order it'll export with), rebuilt
+             every time a checkbox changes, so the admin sees the real result before exporting
+             instead of guessing from a plain checklist. -->
+        <div id="od-export-cols-preview" class="od-export-cols-preview">
+          <span class="od-export-cols-preview-loading" data-i18n="generatingPreview">Generating preview…</span>
+        </div>
         <div class="od-dialog-actions">
           <button type="button" onclick="window.closeOrderExportColsPicker()" data-i18n="cancel">Cancel</button>
           <button type="button" class="od-dialog-ok-btn" onclick="window.confirmOrderExportColsPicker()" data-i18n="exportBtn">Export</button>
@@ -10123,6 +10140,18 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
       return _ORDER_EXPORT_COL_ORDER.filter(k => keys.includes(k)).map(k => ({ key: k, ..._ORDER_EXPORT_COL_DEFS[k] }));
     }
 
+    // Caches the loaded photo/icon Image elements per order — reused by every re-render of the
+    // export canvas (the column picker's live preview rebuilds the whole canvas on every single
+    // checkbox toggle) instead of re-fetching every item's photo from Cloudinary each time.
+    let _orderExportImageCache = null; // { orderId, photos, icons }
+    async function _getOrderExportImages(o, rows) {
+      if (_orderExportImageCache && _orderExportImageCache.orderId === o.id) return _orderExportImageCache;
+      const photos = await Promise.all(rows.map(({ it }) => it.imageUrl ? _loadImageEl(optimizedCloudinaryUrl(it.imageUrl, '200x200'), true) : Promise.resolve(null)));
+      const icons = await Promise.all(rows.map(({ it }) => _platformIconImageEl(it.storePlatform)));
+      _orderExportImageCache = { orderId: o.id, photos, icons };
+      return _orderExportImageCache;
+    }
+
     // Draws the export table by hand on a <canvas> instead of rasterizing an off-DOM HTML
     // table via html2canvas — html2canvas's "clone the page into a hidden iframe" technique
     // turned out to be unreliable inside this app's Android WebView ("Unable to find element
@@ -10171,8 +10200,10 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
       y += headerH;
 
       // Preload every row photo + platform icon up front, in parallel, before drawing anything.
-      const photos = await Promise.all(rows.map(({ it }) => it.imageUrl ? _loadImageEl(optimizedCloudinaryUrl(it.imageUrl, '200x200'), true) : Promise.resolve(null)));
-      const icons = await Promise.all(rows.map(({ it }) => _platformIconImageEl(it.storePlatform)));
+      // Cached per order (see _getOrderExportImages) — the column picker's live preview calls
+      // this again on every single checkbox toggle, and re-fetching every photo each time would
+      // make the preview noticeably laggy for an order with several items.
+      const { photos, icons } = await _getOrderExportImages(o, rows);
 
       const drawers = {
         pic: (x, w, rowTop, d, i) => { if (photos[i]) _drawImageCover(ctx, photos[i], x + 10, rowTop + 10, w - 20, rowH - 20); },
@@ -10185,12 +10216,25 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
           ctx.fillStyle = '#333'; ctx.font = '700 12px Arial, sans-serif'; ctx.textAlign = 'center';
           ctx.fillText(d.it.storePlatform || '', cx, rowTop + (icons[i] ? 58 : rowH / 2));
         },
+        // Horizontal, word-wrapped layout instead of one size per line — stacking every size
+        // vertically overflowed the row whenever an item had more than ~6 sizes (it just kept
+        // growing past the cell's fixed height into the row below it). Wrapping sideways keeps
+        // it inside a couple of lines that fit the fixed row height in the normal case.
         sizes: (x, w, rowTop, d) => {
-          const sizes = d.it.sizes || [];
+          const sizes = (d.it.sizes || []).map(String);
           ctx.font = '11px Arial, sans-serif'; ctx.fillStyle = '#111'; ctx.textAlign = 'center';
+          const maxLineW = w - 10;
+          const lines = [];
+          let line = '';
+          sizes.forEach(s => {
+            const test = line ? line + '  ' + s : s;
+            if (line && ctx.measureText(test).width > maxLineW) { lines.push(line); line = s; }
+            else line = test;
+          });
+          if (line) lines.push(line);
           const lineH = 14;
-          const startY = rowTop + rowH / 2 - ((sizes.length - 1) * lineH) / 2;
-          sizes.forEach((s, si) => ctx.fillText(String(s), x + w / 2, startY + si * lineH));
+          const startY = rowTop + rowH / 2 - ((lines.length - 1) * lineH) / 2;
+          lines.forEach((ln, li) => ctx.fillText(ln, x + w / 2, startY + li * lineH));
         },
         qty: (x, w, rowTop, d) => { ctx.font = '800 16px Arial, sans-serif'; ctx.fillStyle = '#111'; ctx.textAlign = 'center'; ctx.fillText(String(d.qty), x + w / 2, rowTop + rowH / 2); },
         cny: (x, w, rowTop, d) => { ctx.font = '13px Arial, sans-serif'; ctx.fillStyle = '#111'; ctx.textAlign = 'center'; ctx.fillText('¥' + orderMoney(d.unitCny), x + w / 2, rowTop + rowH / 2); },
@@ -10338,9 +10382,10 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
           if (has('pic')) rowData.pic = '';
           if (has('code')) rowData.code = it.code || '';
           if (has('store')) rowData.store = '';
-          // One size per line (not a comma list) to match the stacked Sizes column the PDF/PNG
-          // export uses — wrapText (already set below) renders \n as real line breaks in Excel.
-          if (has('sizes')) rowData.sizes = (it.sizes || []).join('\n');
+          // Comma list (wrapText below handles wrapping to fit the column) rather than one
+          // size per line — stacking every size vertically could overflow a tall item's row
+          // past its fixed height, same issue the PDF/PNG canvas had with the same approach.
+          if (has('sizes')) rowData.sizes = (it.sizes || []).join(', ');
           if (has('qty')) rowData.qty = qty;
           if (has('cny')) rowData.cny = unitCny;
           if (has('usd')) rowData.usd = Math.round(unitUsd * 100) / 100;
@@ -10440,15 +10485,41 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
         list.innerHTML = _ORDER_EXPORT_COL_ORDER.map(key => {
           const checked = _orderExportLastSelectedCols.includes(key) ? 'checked' : '';
           const label = _ORDER_EXPORT_COL_DEFS[key].label;
-          return `<label class="od-export-col-row"><input type="checkbox" value="${key}" ${checked} /> ${escapeHtml(label)}</label>`;
+          return `<label class="od-export-col-row"><input type="checkbox" value="${key}" ${checked} onchange="window._updateExportColsPreview()" /> ${escapeHtml(label)}</label>`;
         }).join('');
       }
       document.getElementById('od-export-cols-backdrop').classList.remove('hidden');
+      window._updateExportColsPreview();
     };
 
     window.closeOrderExportColsPicker = function() {
       document.getElementById('od-export-cols-backdrop').classList.add('hidden');
       _orderExportPendingFormat = null;
+    };
+
+    // Rebuilds the live preview image from whatever columns are currently checked — called on
+    // open and on every checkbox toggle. A monotonically increasing token discards any render
+    // that a newer toggle has already superseded, so fast repeated taps can't make an older,
+    // slower-to-finish render clobber a newer one that finished first.
+    let _orderExportPreviewToken = 0;
+    window._updateExportColsPreview = async function() {
+      const list = document.getElementById('od-export-cols-list');
+      const box = document.getElementById('od-export-cols-preview');
+      if (!list || !box || !currentOrder) return;
+      const selected = Array.from(list.querySelectorAll('input[type="checkbox"]:checked')).map(el => el.value);
+      if (!selected.length) { box.innerHTML = '<span class="od-export-cols-preview-loading">Pick at least one column</span>'; return; }
+      const myToken = ++_orderExportPreviewToken;
+      try {
+        const canvas = await _buildOrderExportCanvas(currentOrder, selected);
+        if (myToken !== _orderExportPreviewToken) return;
+        box.innerHTML = '';
+        const img = document.createElement('img');
+        img.src = canvas.toDataURL('image/png');
+        box.appendChild(img);
+      } catch (e) {
+        console.error('export preview failed', e);
+        if (myToken === _orderExportPreviewToken) box.innerHTML = '<span class="od-export-cols-preview-loading">Preview failed</span>';
+      }
     };
 
     window.confirmOrderExportColsPicker = function() {
