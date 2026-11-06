@@ -2652,7 +2652,13 @@ service cloud.firestore {
            good answer on a 360px-wide phone, so each item gets its own card instead, matching
            the rest of the app's card-based visual language). -->
       <div id="od-rows" class="od-items"></div>
-      <button onclick="window.addOrderItem()" class="mt-3 h-11 px-4 rounded-2xl border-2 border-dashed border-orange-200 text-[#e85d3a] text-sm font-bold w-full bg-orange-50/40 hover:bg-orange-50 transition-colors" data-i18n="addItem">+ Add Item</button>
+      <div class="flex gap-2 mt-3">
+        <button onclick="window.addOrderItem()" class="h-11 px-4 rounded-2xl border-2 border-dashed border-orange-200 text-[#e85d3a] text-sm font-bold flex-1 bg-orange-50/40 hover:bg-orange-50 transition-colors" data-i18n="addItem">+ Add Item</button>
+        <label class="h-11 px-4 rounded-2xl border-2 border-dashed border-orange-200 text-[#e85d3a] text-sm font-bold flex-1 bg-orange-50/40 hover:bg-orange-50 transition-colors flex items-center justify-center cursor-pointer" data-i18n="addItemsFromPhotos">
+          + Add Color Variants
+          <input type="file" accept="image/*" multiple class="hidden" onchange="window.addOrderItemsFromPhotos(this)" />
+        </label>
+      </div>
 
       <!-- Order summary — totals across every item, restated in all three currencies -->
       <div id="od-totals" class="od-summary"></div>
@@ -4185,6 +4191,7 @@ service cloud.firestore {
         noItemsYet: 'ما فيه أصناف بعد — أضف وحدة بالأسفل.', storePlatformPh: '1688 / Taobao…', storeLinkPh: 'رابط',
         sizesPh: '90,100,110 أو from 90 to 110',
         editLinkPrompt: 'تعديل الرابط (اتركه فارغاً للحذف):',
+        colCode: 'الكود (مثلاً S304)', addItemsFromPhotos: '+ إضافة ألوان مختلفة',
         excludedBadge: 'غير مشمولة',
         cancel: 'إلغاء',
         save: 'حفظ',
@@ -4351,6 +4358,7 @@ service cloud.firestore {
         noItemsYet: 'هیچ بابەتێک نییە — یەکێک زیاد بکە لە خوارەوە.', storePlatformPh: '1688 / Taobao…', storeLinkPh: 'لینک',
         sizesPh: '90,100,110 یان from 90 to 110',
         editLinkPrompt: 'دەستکاری لینک بکە (بەتاڵی بهێڵەوە بۆ سڕینەوە):',
+        colCode: 'کۆد (نموونە S304)', addItemsFromPhotos: '+ زیادکردنی ڕەنگی جیاواز',
         excludedBadge: 'بێ داشکاندن',
         cancel: 'پاشگەزبوونەوە',
         save: 'پاشەکەوتکردن',
@@ -4517,6 +4525,7 @@ service cloud.firestore {
         noItemsYet: 'No items yet — add one below.', storePlatformPh: '1688 / Taobao…', storeLinkPh: 'Link',
         sizesPh: '90,100,110 or from 90 to 110',
         editLinkPrompt: 'Edit link (leave empty to remove):',
+        colCode: 'Code (e.g. S304)', addItemsFromPhotos: '+ Add Color Variants',
         excludedBadge: 'Excluded',
         cancel: 'Cancel',
         save: 'Save',
@@ -9767,6 +9776,7 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
                 <input type="file" accept="image/*" class="hidden" onchange="window.uploadOrderItemImage(${idx}, this)" />
               </label>
               <div class="od-item-store">
+                <input class="od-input od-input-strong" value="${escapeHtml(it.code||'')}" placeholder="${escapeHtml(window.t?window.t('colCode'):'Code (e.g. S304)')}" onchange="window.updateOrderItem(${idx},'code',this.value)" />
                 ${storeHTML}
               </div>
               <button onclick="window.removeOrderItem(${idx})" class="od-item-remove" title="Remove">
@@ -9854,9 +9864,38 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
     window.addOrderItem = function() {
       if (!currentOrder) return;
       if (!currentOrder.items) currentOrder.items = [];
-      currentOrder.items.push({ storePlatform:'', storeLink:'', unitPriceCny:0, sizes:[], quantity:0, imageUrl:'' });
+      currentOrder.items.push({ code:'', storePlatform:'', storeLink:'', unitPriceCny:0, sizes:[], quantity:0, imageUrl:'' });
       renderOrderRows();
       persistOrderItems();
+    };
+
+    // ── "Add Items from Photos" — several color/style variants of the same product at once ──
+    // Picking N photos here creates N new rows in one go, each pre-filled from the current LAST
+    // row's platform/link/price/sizes (the usual case: same product, same store link, same
+    // price, same size run — only the photo and quantity actually differ per color) instead of
+    // making the admin repeat "+ Add Item" -> upload -> retype the same price/sizes N times.
+    window.addOrderItemsFromPhotos = async function(inputEl) {
+      const files = inputEl.files ? Array.from(inputEl.files) : [];
+      inputEl.value = ''; // so picking the same file(s) again later still fires onchange
+      if (!files.length || !currentOrder) return;
+      if (!currentOrder.items) currentOrder.items = [];
+      // Same code as the row it's templated from too — these are color variants of ONE model,
+      // same product code, same way the main Catalog already lets several cards share a code
+      // (one per color) instead of faking a "S304.1"/"S304.2" suffix.
+      const last = currentOrder.items[currentOrder.items.length - 1];
+      const template = last
+        ? { code: last.code||'', storePlatform: last.storePlatform||'', storeLink: last.storeLink||'', unitPriceCny: last.unitPriceCny||0, sizes: [...(last.sizes||[])] }
+        : { code:'', storePlatform:'', storeLink:'', unitPriceCny:0, sizes:[] };
+      showToast(`⏳ Uploading ${files.length} photo${files.length>1?'s':''}…`, 'success');
+      for (const file of files) {
+        try {
+          const url = await uploadToCloudinary(file);
+          currentOrder.items.push({ ...template, quantity: 0, imageUrl: url });
+          renderOrderRows(); // update after each upload — visible progress on a slow connection
+        } catch(e) { console.error(e); showToast('Image upload failed', 'error'); }
+      }
+      persistOrderItems();
+      showToast(`✓ ${files.length} variant${files.length>1?'s':''} added`, 'success');
     };
 
     window.removeOrderItem = function(idx) {
@@ -9919,7 +9958,7 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
           const unitUsd = cnyRate > 0 ? (parseFloat(it.unitPriceCny)||0) / cnyRate : 0;
           const realCostIqd = iqdRate > 0 ? (unitUsd + shipPerPiece) * iqdRate : 0;
           await window._fbSave({
-            modelCode: `${(currentOrder.name||'ORD').replace(/\s+/g,'')}-${i+1}`,
+            modelCode: (it.code||'').trim() || `${(currentOrder.name||'ORD').replace(/\s+/g,'')}-${i+1}`,
             serial: i,
             ageGroup: '',
             price: Math.round(realCostIqd),
