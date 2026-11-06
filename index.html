@@ -10417,6 +10417,11 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
 
     // Renders one of the app's own platform icons (stored as inline SVG data-URIs, which
     // ExcelJS can't embed directly) to a small PNG buffer so it can go inside a cell.
+    // EMU (English Metric Units) is what OOXML drawing offsets are actually stored in — 9525 EMU
+    // per CSS pixel at 96dpi. Passing an explicit colOff/rowOff in EMU (vs. a fractional col/row)
+    // positions an image exactly, regardless of that column's/row's own custom width/height.
+    function _emuPx(px) { return Math.round(px * 9525); }
+
     const _excelImageBufCache = new Map();
     async function _fetchExcelPhotoBuf(imageUrl) {
       if (_excelImageBufCache.has(imageUrl)) return _excelImageBufCache.get(imageUrl);
@@ -10532,20 +10537,25 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
           if (has('pic') && excelPhotoBufs[rowI]) {
             try {
               const imgId = wb.addImage({ buffer: excelPhotoBufs[rowI], extension: 'jpeg' });
-              ws.addImage(imgId, { tl: { col: 0.1, row: rIdx - 1 + 0.08 }, ext: { width: 84, height: 84 } });
+              // Plain integer col/row + an EMU colOff/rowOff, not a fractional col/row (e.g.
+              // `col: 0.1`) — ExcelJS converts a fractional col into EMU using its own internal
+              // per-column constant that does NOT match this column's actual (custom) pixel
+              // width, so a "0.1 of the column" offset lands nowhere near 10% of its real width.
+              // An explicit EMU offset is unambiguous regardless of column width.
+              ws.addImage(imgId, { tl: { col: 0, colOff: _emuPx(4), row: rIdx - 1, rowOff: _emuPx(2) }, ext: { width: 84, height: 84 } });
             } catch (e) { console.error('excel image embed failed', e); }
           }
           if (has('store')) {
             const iconBuf = excelIconBufs[rowI];
             if (iconBuf) {
               const iconId = wb.addImage({ buffer: iconBuf, extension: 'png' });
-              // Excel's own column-width-to-pixel formula (not a flat ×7) — matching it is what
-              // actually centers the icon; the earlier flat-multiplier guess put it off-center.
+              // Excel's own column-width-to-pixel formula (not a flat ×7) — used only to work out
+              // how many px to inset the icon so it's centered over the (shorter) link text below.
               const storeColChars = ws.getColumn('store').width;
               const storeColPx = Math.floor((256 * storeColChars + Math.floor(128 / 7)) / 256 * 7);
               const iconSize = 36;
-              const iconColOffset = Math.max(0, (storeColPx - iconSize) / 2) / storeColPx;
-              ws.addImage(iconId, { tl: { col: storeColIdx + iconColOffset, row: rIdx - 1 + 0.1 }, ext: { width: iconSize, height: iconSize } });
+              const iconLeftPx = Math.max(0, (storeColPx - iconSize) / 2);
+              ws.addImage(iconId, { tl: { col: storeColIdx, colOff: _emuPx(iconLeftPx), row: rIdx - 1, rowOff: _emuPx(6) }, ext: { width: iconSize, height: iconSize } });
             }
           }
           rIdx++;
