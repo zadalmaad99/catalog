@@ -67,6 +67,30 @@
        last row of content isn't hidden underneath it. */
     #folders-view, #orders-view { padding-bottom: 64px; }
 
+    /* ── Styled confirm/prompt dialog (replaces window.confirm/window.prompt on Orders flows) ── */
+    #od-dialog-backdrop {
+      position: fixed; inset: 0; z-index: 9990; background: rgba(20,15,10,0.5);
+      display: flex; align-items: center; justify-content: center; padding: 20px;
+      backdrop-filter: blur(2px);
+    }
+    #od-dialog-backdrop.hidden { display: none; }
+    #od-dialog-card {
+      background: #fff; border-radius: 20px; padding: 22px; max-width: 340px; width: 100%;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.25); animation: odDialogPop 0.15s ease;
+    }
+    @keyframes odDialogPop { from { transform: scale(0.94); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+    #od-dialog-message { font-size: 0.92rem; font-weight: 700; color: #1a1a2e; line-height: 1.5; }
+    #od-dialog-input { margin-top: 12px; }
+    #od-dialog-actions { display: flex; gap: 8px; margin-top: 20px; }
+    #od-dialog-actions button {
+      flex: 1; height: 44px; border-radius: 13px; border: none; font-size: 0.85rem; font-weight: 800;
+      cursor: pointer; transition: filter 0.12s;
+    }
+    #od-dialog-actions button:active { filter: brightness(0.95); }
+    #od-dialog-actions button:first-child { background: #f3f4f6; color: #4b5563; }
+    #od-dialog-ok-btn { background: #e85d3a; color: #fff; }
+    #od-dialog-ok-btn.danger { background: #ef4444; }
+
     /* ── Orders list card — same visual language as .folder-card (hover lift, top accent
        bar, photo collage) so it reads as a first-class part of the app. ── */
     .order-card {
@@ -2672,6 +2696,20 @@ service cloud.firestore {
       </div>
     </div>
 
+    <!-- Styled stand-in for window.confirm()/window.prompt() on every Orders flow (remove item,
+         delete order, edit a link, convert to folder) — the native browser dialog ("The page at
+         file:// says…") looks jarringly out of place next to the rest of this app's design. -->
+    <div id="od-dialog-backdrop" class="hidden" onclick="if(event.target===this) window.odDialogRespond(null)">
+      <div id="od-dialog-card">
+        <p id="od-dialog-message"></p>
+        <input id="od-dialog-input" class="od-input hidden" />
+        <div id="od-dialog-actions">
+          <button type="button" onclick="window.odDialogRespond(null)" data-i18n="cancel">Cancel</button>
+          <button type="button" id="od-dialog-ok-btn" onclick="window.odDialogConfirm()" data-i18n="ok">OK</button>
+        </div>
+      </div>
+    </div>
+
     <!-- ═══════════════ TRASH VIEW ═══════════════ -->
     <div id="trash-view" class="hidden">
       <!-- Breadcrumb -->
@@ -4197,6 +4235,7 @@ service cloud.firestore {
         colCode: 'الكود (مثلاً S304)', addItemsFromPhotos: '+ إضافة ألوان مختلفة',
         excludedBadge: 'غير مشمولة',
         cancel: 'إلغاء',
+        ok: 'تأكيد',
         save: 'حفظ',
         deleteModel: 'حذف الموديل',
         confirm: 'تأكيد',
@@ -4364,6 +4403,7 @@ service cloud.firestore {
         colCode: 'کۆد (نموونە S304)', addItemsFromPhotos: '+ زیادکردنی ڕەنگی جیاواز',
         excludedBadge: 'بێ داشکاندن',
         cancel: 'پاشگەزبوونەوە',
+        ok: 'باشە',
         save: 'پاشەکەوتکردن',
         deleteModel: 'سڕینەوەی مۆدێل',
         confirm: 'دڵنیاکردنەوە',
@@ -4531,6 +4571,7 @@ service cloud.firestore {
         colCode: 'Code (e.g. S304)', addItemsFromPhotos: '+ Add Color Variants',
         excludedBadge: 'Excluded',
         cancel: 'Cancel',
+        ok: 'OK',
         save: 'Save',
         deleteModel: 'Delete Model',
         confirm: 'Confirm',
@@ -9556,6 +9597,39 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
     // "from 90 to 110", "90 to 110", "90-110" all expand to 90, 100, 110 (standard clothing
     // size step of 10). Anything with a comma, or that doesn't match a range, falls back to the
     // plain comma-split it always supported.
+
+    // ── Styled stand-in for window.confirm()/window.prompt() ──
+    // The native versions ("The page at file:// says…") look jarring next to the rest of this
+    // app's design. odConfirm/odPrompt show the same #od-dialog-* markup and resolve a Promise
+    // the same way their native counterparts return synchronously — just async, so every caller
+    // needs `await`. Only one can be open at a time, same as the native dialogs.
+    let _odDialogResolve = null;
+    function odDialogOpen(message, { withInput, defaultValue, danger } = {}) {
+      return new Promise(resolve => {
+        _odDialogResolve = resolve;
+        document.getElementById('od-dialog-message').textContent = message;
+        const input = document.getElementById('od-dialog-input');
+        input.classList.toggle('hidden', !withInput);
+        input.value = withInput ? (defaultValue || '') : '';
+        document.getElementById('od-dialog-ok-btn').classList.toggle('danger', !!danger);
+        document.getElementById('od-dialog-backdrop').classList.remove('hidden');
+        if (withInput) setTimeout(() => input.focus(), 50);
+      });
+    }
+    window.odDialogRespond = function(value) {
+      document.getElementById('od-dialog-backdrop').classList.add('hidden');
+      if (_odDialogResolve) _odDialogResolve(value);
+      _odDialogResolve = null;
+    };
+    window.odDialogConfirm = function() {
+      const input = document.getElementById('od-dialog-input');
+      window.odDialogRespond(input.classList.contains('hidden') ? true : input.value);
+    };
+    // Resolves true/null (mirrors window.confirm's true/false, but via await).
+    window.odConfirm = function(message, opts) { return odDialogOpen(message, opts); };
+    // Resolves the typed string, or null if cancelled (mirrors window.prompt).
+    window.odPrompt = function(message, defaultValue) { return odDialogOpen(message, { withInput: true, defaultValue }); };
+
     // ── Tap-to-open / hold-to-edit on the collapsed "linked platform" button ──
     // A plain onclick can't tell a tap from a press-and-hold, so this tracks its own timer:
     // if the button is still held after ODPRESS_HOLD_MS, that's a long-press (edit); if it's
@@ -9587,10 +9661,10 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
       if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
       window.open(url, '_blank');
     };
-    window.editOrderItemLink = function(idx) {
+    window.editOrderItemLink = async function(idx) {
       const it = currentOrder && currentOrder.items && currentOrder.items[idx];
       if (!it) return;
-      const val = window.prompt(window.t ? window.t('editLinkPrompt') : 'Edit link (leave empty to remove):', it.storeLink || '');
+      const val = await window.odPrompt(window.t ? window.t('editLinkPrompt') : 'Edit link (leave empty to remove):', it.storeLink || '');
       if (val === null) return; // cancelled
       window.updateOrderItem(idx, 'storeLink', val.trim());
     };
@@ -9907,9 +9981,9 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
       showToast(`✓ ${files.length} variant${files.length>1?'s':''} added`, 'success');
     };
 
-    window.removeOrderItem = function(idx) {
+    window.removeOrderItem = async function(idx) {
       if (!currentOrder || !currentOrder.items) return;
-      if (!window.confirm('Remove this item?')) return;
+      if (!(await window.odConfirm('Remove this item?', { danger: true }))) return;
       currentOrder.items.splice(idx, 1);
       renderOrderRows();
       persistOrderItems();
@@ -9935,7 +10009,7 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
 
     window.deleteCurrentOrder = async function() {
       if (!currentOrder || !window._fbDeleteOrder) return;
-      if (!window.confirm(`Delete order "${currentOrder.name || 'Untitled'}"? This cannot be undone.`)) return;
+      if (!(await window.odConfirm(`Delete order "${currentOrder.name || 'Untitled'}"? This cannot be undone.`, { danger: true }))) return;
       try {
         await window._fbDeleteOrder(currentOrder.id);
         allOrders = allOrders.filter(o => o.id !== currentOrder.id);
@@ -9955,7 +10029,7 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
       if (!(window._fbSaveFolder && window._fbSave)) return;
       const items = currentOrder.items || [];
       if (!items.length) { showToast('This order has no items', 'error'); return; }
-      if (!window.confirm(`Create a new folder "${currentOrder.name}" with ${items.length} model(s)?`)) return;
+      if (!(await window.odConfirm(`Create a new folder "${currentOrder.name}" with ${items.length} model(s)?`))) return;
       try {
         const cnyRate = parseFloat(currentOrder.cnyRate) || 0;
         const iqdRate = parseFloat(currentOrder.usdToIqdRate) || 0;
