@@ -10485,7 +10485,10 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
             const storeCell = row.getCell('store');
             storeCell.alignment = { horizontal: 'center', vertical: 'bottom', wrapText: true };
             if (it.storeLink) {
-              storeCell.value = { text: it.storePlatform || 'Link', hyperlink: it.storeLink };
+              // `tooltip` matters here, not just `text` — without it, Excel's default hover/
+              // long-press tooltip on a hyperlink cell is the raw target URL itself, which is
+              // exactly the "ugly wall of text" the short display text was meant to hide.
+              storeCell.value = { text: it.storePlatform || 'Link', hyperlink: it.storeLink, tooltip: it.storePlatform || 'Open link' };
               storeCell.font = { color: { argb: 'FF2563EB' }, underline: true, size: 11, bold: true };
             } else if (it.storePlatform) {
               storeCell.value = it.storePlatform;
