@@ -130,12 +130,16 @@
        the actual table plus a scrollable checkbox list — so it gets its own wider/taller card
        instead of the shared .od-dialog-card sizing. */
     .od-export-cols-card { max-width: 480px; max-height: 88vh; overflow-y: auto; }
+    /* Not flex+align-items:center — centering an element taller than its scrollable container
+       is a known way for the browser to clip its top instead of just letting you scroll to it,
+       which is exactly what made the preview "look cut off" once a narrower column selection
+       produced a differently-shaped (often taller-relative-to-width) image. Plain block layout
+       with text-align lets overflow scroll normally in both directions. */
     .od-export-cols-preview {
       margin-top: 14px; border: 1px solid #f0e8e2; border-radius: 12px; overflow: auto;
-      max-height: 220px; background: #faf9f7; display: flex; align-items: center; justify-content: center;
-      min-height: 60px;
+      max-height: 320px; background: #faf9f7; text-align: center; padding: 8px; min-height: 60px;
     }
-    .od-export-cols-preview img { display: block; width: 100%; height: auto; }
+    .od-export-cols-preview img { display: inline-block; max-width: 100%; height: auto; }
     .od-export-cols-preview-loading { font-size: 0.78rem; font-weight: 700; color: #9ca3af; padding: 18px; }
 
     /* Order-detail toolbar — on a phone-width screen the order name + the 4 action buttons
