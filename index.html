@@ -10207,26 +10207,128 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
       finally { _orderExportBusy = false; }
     };
 
+    // Renders one of the app's own platform icons (stored as inline SVG data-URIs, which
+    // ExcelJS can't embed directly) to a small PNG buffer so it can go inside a cell.
+    async function _platformIconPngBuffer(platformName) {
+      const img = await _platformIconImageEl(platformName);
+      if (!img) return null;
+      const canvas = document.createElement('canvas');
+      canvas.width = 48; canvas.height = 48;
+      canvas.getContext('2d').drawImage(img, 0, 0, 48, 48);
+      const blob = await new Promise(res => canvas.toBlob(res, 'image/png'));
+      return blob ? blob.arrayBuffer() : null;
+    }
+
     window.exportOrderExcel = async function() {
       if (!currentOrder || _orderExportBusy) return;
       _orderExportBusy = true;
       showToast('Generating Excel…', 'info');
       try {
         await _loadExportLib('https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js', () => window.ExcelJS);
-        // Real Excel cells (borders, fonts, floating images per row) render differently from
-        // one spreadsheet app to the next — Google Sheets, WPS, a phone's built-in previewer,
-        // and real Excel all interpret icon anchoring and row heights slightly differently,
-        // which is exactly what made this look "not as organized as the PDF" depending on what
-        // app opened it. Embedding the SAME canvas used for the PDF/PNG as one picture sidesteps
-        // all of that — the Excel file shows literally the same image, in every app, guaranteed.
-        const canvas = await _buildOrderExportCanvas(currentOrder);
-        const pngBuf = await new Promise(res => canvas.toBlob(b => b.arrayBuffer().then(res), 'image/png'));
         const wb = new window.ExcelJS.Workbook();
         const ws = wb.addWorksheet((currentOrder.name || 'Order').slice(0, 31));
-        const imgId = wb.addImage({ buffer: pngBuf, extension: 'png' });
-        // canvas is 2x-scaled (see _buildOrderExportCanvas) — use its CSS-pixel size so the
-        // embedded picture isn't rendered at double size in the sheet.
-        ws.addImage(imgId, { tl: { col: 0, row: 0 }, ext: { width: canvas.width / 2, height: canvas.height / 2 } });
+        const colDefs = [
+          { key: 'pic', width: 16, label: 'Picture' },
+          { key: 'code', width: 12, label: 'Code' },
+          { key: 'store', width: 28, label: 'Store' },
+          { key: 'cny', width: 13, label: 'Unit Price ¥' },
+          { key: 'usd', width: 13, label: 'Unit Price $' },
+          { key: 'sizes', width: 18, label: 'Sizes' },
+          { key: 'qty', width: 11, label: 'Quantity' },
+          { key: 'iqd', width: 18, label: 'Real Cost (IQD)' },
+        ];
+        // No `header` on these — setting one makes ExcelJS auto-write it into row 1, which
+        // would collide with the title/date rows added below (matching the PDF/PNG export's
+        // own header, so all three exports read as the same document at a glance).
+        ws.columns = colDefs.map(({ key, width }) => ({ key, width }));
+        const storeColIdx = 2; // 0-based: pic, code, store
+        const lastColLetter = String.fromCharCode(65 + colDefs.length - 1); // 'H'
+        const thinBorder = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
+
+        const titleRow = ws.addRow([currentOrder.name || 'Order']);
+        titleRow.height = 26;
+        ws.mergeCells(`A${titleRow.number}:${lastColLetter}${titleRow.number}`);
+        titleRow.getCell(1).font = { bold: true, size: 16 };
+        titleRow.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
+
+        const dateRow = ws.addRow([currentOrder.purchaseDate || '']);
+        dateRow.height = 18;
+        ws.mergeCells(`A${dateRow.number}:${lastColLetter}${dateRow.number}`);
+        dateRow.getCell(1).font = { size: 10, color: { argb: 'FF666666' } };
+        dateRow.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
+
+        const headerRow = ws.addRow(colDefs.map(c => c.label));
+        headerRow.height = 24;
+        headerRow.font = { bold: true, size: 11 };
+        headerRow.eachCell(c => {
+          c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE4E1FB' } };
+          c.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+          c.border = thinBorder;
+        });
+        ws.views = [{ state: 'frozen', ySplit: headerRow.number }];
+
+        const { rows, totalQty, totalRealIqd } = _orderExportRows(currentOrder);
+        let rIdx = headerRow.number + 1;
+        for (const { it, unitCny, unitUsd, qty, realCostIqd } of rows) {
+          // One size per line (not a comma list) to match the stacked Sizes column the PDF/PNG
+          // export uses — wrapText (already set below) renders \n as real line breaks in Excel.
+          const row = ws.addRow({ pic: '', code: it.code || '', store: '', cny: unitCny, usd: Math.round(unitUsd * 100) / 100, sizes: (it.sizes || []).join('\n'), qty, iqd: Math.round(realCostIqd) });
+          row.height = 86;
+          row.eachCell(c => { c.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true }; c.border = thinBorder; });
+          row.getCell('cny').numFmt = '"¥"#,##0.00';
+          row.getCell('usd').numFmt = '"$"#,##0.00';
+          row.getCell('iqd').numFmt = '#,##0 "IQD"';
+          // Store/Link cell: platform icon pinned near the top, platform NAME as a short
+          // clickable link underneath — not the raw URL, which just read as an ugly
+          // wall-of-text; the whole name is the link, so it's just as clickable either way.
+          // Mirrors the PDF/PNG export's own store cell layout.
+          const storeCell = row.getCell('store');
+          storeCell.alignment = { horizontal: 'center', vertical: 'bottom', wrapText: true };
+          if (it.storeLink) {
+            storeCell.value = { text: it.storePlatform || 'Link', hyperlink: it.storeLink };
+            storeCell.font = { color: { argb: 'FF2563EB' }, underline: true, size: 11, bold: true };
+          } else if (it.storePlatform) {
+            storeCell.value = it.storePlatform;
+            storeCell.font = { size: 11, bold: true };
+          }
+          if (it.imageUrl) {
+            try {
+              const resp = await fetch(optimizedCloudinaryUrl(it.imageUrl, '200x200'));
+              const buf = await resp.arrayBuffer();
+              const ext = /\.png($|\?)/i.test(it.imageUrl) ? 'png' : 'jpeg';
+              const imgId = wb.addImage({ buffer: buf, extension: ext });
+              ws.addImage(imgId, { tl: { col: 0.1, row: rIdx - 1 + 0.08 }, ext: { width: 84, height: 84 } });
+            } catch (e) { console.error('excel image embed failed', e); }
+          }
+          const iconBuf = await _platformIconPngBuffer(it.storePlatform);
+          if (iconBuf) {
+            const iconId = wb.addImage({ buffer: iconBuf, extension: 'png' });
+            // Excel's own column-width-to-pixel formula (not a flat ×7) — matching it is what
+            // actually centers the icon; the earlier flat-multiplier guess put it off-center.
+            const storeColChars = ws.getColumn('store').width;
+            const storeColPx = Math.floor((256 * storeColChars + Math.floor(128 / 7)) / 256 * 7);
+            const iconSize = 36;
+            const iconColOffset = Math.max(0, (storeColPx - iconSize) / 2) / storeColPx;
+            ws.addImage(iconId, { tl: { col: storeColIdx + iconColOffset, row: rIdx - 1 + 0.1 }, ext: { width: iconSize, height: iconSize } });
+          }
+          rIdx++;
+        }
+        // Totals row — brand-orange fill + larger bold text so it visibly stands out as the
+        // one line that matters most, instead of blending into the rest of the grid.
+        const totalRow = ws.addRow({ code: 'TOTAL', qty: totalQty, iqd: Math.round(totalRealIqd) });
+        totalRow.height = 30;
+        totalRow.getCell('iqd').numFmt = '#,##0 "IQD"';
+        ws.mergeCells(`A${totalRow.number}:B${totalRow.number}`);
+        ws.mergeCells(`C${totalRow.number}:F${totalRow.number}`);
+        totalRow.getCell('code').alignment = { horizontal: 'center', vertical: 'middle' };
+        totalRow.getCell('code').font = { bold: true, size: 14, color: { argb: 'FFE85D3A' } };
+        totalRow.getCell('qty').font = { bold: true, size: 14 };
+        totalRow.getCell('iqd').font = { bold: true, size: 14, color: { argb: 'FFE85D3A' } };
+        totalRow.eachCell({ includeEmpty: true }, c => {
+          c.border = { top: { style: 'medium' }, left: { style: 'thin' }, bottom: { style: 'medium' }, right: { style: 'thin' } };
+          c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFDE8DF' } };
+          c.alignment = { horizontal: 'center', vertical: 'middle' };
+        });
 
         const buf = await wb.xlsx.writeBuffer();
         const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
