@@ -187,13 +187,25 @@
        identity row above it by a hairline — one clear "this part is the photo/link, this part
        is the numbers" split, instead of every field just floating in the same column. */
     .od-item-grid {
-      display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;
       margin-top: 12px; padding: 10px 8px 8px; border-top: 1px solid #f4ece6;
       background: #fcfaf9; border-radius: 12px;
     }
     .od-item-field { display: flex; flex-direction: column; gap: 4px; }
     .od-item-field-label { font-size: 0.6rem; font-weight: 800; color: #b0b7c3; text-transform: uppercase; text-align: center; }
     .od-item-static { text-align: center; font-weight: 800; color: #6b7280; font-size: 0.8rem; padding: 6px 0; }
+    /* Size chips — its own full-width row below the 3-number grid, tap to toggle each size
+       on/off instead of typing a comma list. */
+    .od-sizes-picker { margin-top: 10px; display: flex; flex-direction: column; gap: 6px; }
+    .od-size-toggles { display: flex; flex-wrap: wrap; gap: 6px; }
+    .od-size-toggle {
+      min-width: 40px; height: 32px; padding: 0 10px; border-radius: 10px;
+      border: 1.5px solid #ececec; background: #fff; color: #6b7280;
+      font-size: 0.75rem; font-weight: 800; cursor: pointer; transition: all 0.12s;
+    }
+    .od-size-toggle:active { transform: scale(0.94); }
+    .od-size-toggle.active { background: #e85d3a; border-color: #e85d3a; color: #fff; }
+    .od-size-toggle-custom { color: #e85d3a; border-style: dashed; font-size: 1rem; min-width: 32px; padding: 0; }
     .od-item-cost {
       margin-top: 10px; padding-top: 10px; border-top: 1px dashed #f1e4da;
       display: flex; align-items: center; justify-content: space-between;
@@ -214,7 +226,6 @@
     .od-stat-dark  { background: linear-gradient(135deg,#1a1a2e,#2d2d4e); color: #fff; grid-column: span 2; flex-direction: row; align-items: center; justify-content: space-between; }
     .od-stat-dark .od-stat-value { font-size: 1.2rem; }
     @media (min-width: 640px) {
-      .od-item-grid { grid-template-columns: repeat(4, 1fr); }
       .od-summary { grid-template-columns: repeat(4, 1fr); }
       .od-stat-dark { grid-column: span 1; flex-direction: column; align-items: flex-start; }
     }
@@ -9580,6 +9591,39 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
       return totalQty > 0 ? shippingTotalUsd / totalQty : 0;
     }
 
+    // ── Cloudinary cleanup for Purchase Orders ──
+    // Unlike the rest of the Catalog (where "delete" only ever soft-deletes the Firestore doc —
+    // an intentional, standing decision, never touch that), Orders images are meant to actually
+    // disappear from Cloudinary when removed: an item, a whole order, or a photo being replaced.
+    // Deleting a real Cloudinary asset needs a signed request (the account's API secret), which
+    // can only happen server-side — this calls a small Vercel function that verifies the
+    // caller's Firebase ID token belongs to the super-admin account before it will delete
+    // anything (see catalog-cloudinary-cleanup/api/delete-image.js). Every call here is
+    // best-effort: it never throws into/blocks the UI action that triggered it — the Firestore
+    // state is the source of truth, this is just housekeeping on the side.
+    const CLOUDINARY_DELETE_ENDPOINT = 'https://catalog-cloudinary-cleanup.vercel.app/api/delete-image';
+    function cloudinaryPublicId(url) {
+      // Matches exactly the shape uploadToCloudinary's stored imageUrl always has — the raw
+      // secure_url Cloudinary's own upload API returns, never a transformed/display URL (those
+      // are built separately, on the fly, by optimizedCloudinaryUrl/downloadCloudinaryUrl, and
+      // never written back to Firestore).
+      const m = String(url || '').match(/\/upload\/v\d+\/(.+)\.[a-zA-Z0-9]+(?:\?.*)?$/);
+      return m ? m[1] : null;
+    }
+    async function deleteCloudinaryImage(imageUrl) {
+      const publicId = cloudinaryPublicId(imageUrl);
+      if (!publicId) return;
+      try {
+        const idToken = window._fbGetIdToken ? await window._fbGetIdToken() : null;
+        if (!idToken) return;
+        await fetch(CLOUDINARY_DELETE_ENDPOINT, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ idToken, publicId }),
+        });
+      } catch (e) { console.warn('Cloudinary cleanup failed (non-fatal):', e); }
+    }
+
     // ── Chinese purchasing-platform icons for the order item's Store/Platform field ──
     // Small embedded data URIs (SVG except wechat, which is a PNG) so the quick-pick row
     // and the icon shown next to a typed platform name both work fully offline.
@@ -9687,6 +9731,48 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
         }
       }
       return s.split(',').map(x => x.trim()).filter(Boolean);
+    };
+
+    // ── Size chips (tap to toggle) ── standard clothing-size ladder, kept independent per item
+    // row — sizes are only ever COPIED as a starting point when a row is created via "Add Color
+    // Variants", never linked afterward, since not every color of the same model actually comes
+    // in the same size run.
+    const ORD_STANDARD_SIZES = ['70','80','90','100','110','120','130','140','150','160'];
+    window.odStandardSizeToggles = function(idx, sizes) {
+      const list = (sizes || []).map(String);
+      const set = new Set(list);
+      // Any already-saved size outside the standard ladder (e.g. "S"/"M"/"165" added via the +
+      // custom button) still needs its own chip, or it'd silently vanish from view here.
+      const extra = list.filter(s => !ORD_STANDARD_SIZES.includes(s));
+      return [...ORD_STANDARD_SIZES, ...extra]
+        .map(s => `<button type="button" class="od-size-toggle${set.has(s)?' active':''}" onclick="window.odToggleSize(${idx},'${s.replace(/'/g,"\\'")}')">${escapeHtml(s)}</button>`)
+        .join('');
+    };
+    window.odToggleSize = function(idx, size) {
+      const it = currentOrder && currentOrder.items && currentOrder.items[idx];
+      if (!it) return;
+      const cur = (it.sizes || []).map(String);
+      const i = cur.indexOf(size);
+      if (i === -1) cur.push(size); else cur.splice(i, 1);
+      cur.sort((a, b) => {
+        const na = parseFloat(a), nb = parseFloat(b);
+        if (!isNaN(na) && !isNaN(nb)) return na - nb;
+        if (!isNaN(na)) return -1;
+        if (!isNaN(nb)) return 1;
+        return a.localeCompare(b);
+      });
+      window.updateOrderItem(idx, 'sizes', cur);
+    };
+    window.odAddCustomSize = async function(idx) {
+      const val = await window.odPrompt(window.t ? window.t('addCustomSizePrompt') : 'Add size(s) — a number, a letter size (S/M/L), or a range like "150 to 170":');
+      if (val === null) return;
+      const added = window.parseSizesInput(val);
+      if (!added.length) return;
+      const it = currentOrder && currentOrder.items && currentOrder.items[idx];
+      if (!it) return;
+      const cur = (it.sizes || []).map(String);
+      added.forEach(s => { if (!cur.includes(s)) cur.push(s); });
+      window.updateOrderItem(idx, 'sizes', cur);
     };
 
     // Display labels for the quick-pick row; also used to match a typed/saved storePlatform
@@ -9873,9 +9959,16 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
                 <span class="od-item-field-label">${escapeHtml(window.t?window.t('colQty'):'Qty')}</span>
                 <input type="number" min="0" class="od-input od-input-num" value="${qty||''}" placeholder="0" onchange="window.updateOrderItem(${idx},'quantity',parseInt(this.value)||0)" />
               </div>
-              <div class="od-item-field">
-                <span class="od-item-field-label">${escapeHtml(window.t?window.t('colSizes'):'Sizes')}</span>
-                <input class="od-input" value="${escapeHtml((it.sizes||[]).join(', '))}" placeholder="${escapeHtml(window.t?window.t('sizesPh'):'90,100,110 or from 90 to 110')}" onchange="window.updateOrderItem(${idx},'sizes',window.parseSizesInput(this.value))" />
+            </div>
+            <!-- Tap-to-toggle size chips instead of typing a comma list — each row keeps its own
+                 independent set (sizes were only ever COPIED as a starting point when a row was
+                 created via "Add Color Variants", never linked afterward), since not every color
+                 of the same model actually comes in the same size run. -->
+            <div class="od-sizes-picker">
+              <span class="od-item-field-label" style="text-align:left;">${escapeHtml(window.t?window.t('colSizes'):'Sizes')}</span>
+              <div class="od-size-toggles">
+                ${window.odStandardSizeToggles(idx, it.sizes||[])}
+                <button type="button" class="od-size-toggle od-size-toggle-custom" onclick="window.odAddCustomSize(${idx})" title="${escapeHtml(window.t?window.t('addCustomSize'):'Add a custom size')}">+</button>
               </div>
             </div>
             <div class="od-item-cost">
@@ -9984,9 +10077,10 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
     window.removeOrderItem = async function(idx) {
       if (!currentOrder || !currentOrder.items) return;
       if (!(await window.odConfirm('Remove this item?', { danger: true }))) return;
-      currentOrder.items.splice(idx, 1);
+      const [removed] = currentOrder.items.splice(idx, 1);
       renderOrderRows();
       persistOrderItems();
+      if (removed && removed.imageUrl) deleteCloudinaryImage(removed.imageUrl);
     };
 
     window.updateOrderItem = function(idx, field, value) {
@@ -9999,22 +10093,26 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
     window.uploadOrderItemImage = async function(idx, inputEl) {
       const file = inputEl.files && inputEl.files[0];
       if (!file || !currentOrder || !currentOrder.items[idx]) return;
+      const oldUrl = currentOrder.items[idx].imageUrl;
       try {
         const url = await uploadToCloudinary(file);
         currentOrder.items[idx].imageUrl = url;
         renderOrderRows();
         persistOrderItems();
+        if (oldUrl) deleteCloudinaryImage(oldUrl); // the photo it just replaced
       } catch(e) { console.error(e); showToast('Image upload failed', 'error'); }
     };
 
     window.deleteCurrentOrder = async function() {
       if (!currentOrder || !window._fbDeleteOrder) return;
       if (!(await window.odConfirm(`Delete order "${currentOrder.name || 'Untitled'}"? This cannot be undone.`, { danger: true }))) return;
+      const imageUrls = (currentOrder.items || []).map(it => it.imageUrl).filter(Boolean);
       try {
         await window._fbDeleteOrder(currentOrder.id);
         allOrders = allOrders.filter(o => o.id !== currentOrder.id);
         currentOrder = null;
         window.showOrdersView();
+        imageUrls.forEach(deleteCloudinaryImage); // every item's photo, not just the order doc
       } catch(e) { console.error(e); showToast('An error occurred while deleting', 'error'); }
     };
 
@@ -12224,6 +12322,13 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
     const auth = getAuth(app);
     const storage = getStorage(app);
     const S    = window._appState;
+
+    // Used by the Purchase Orders Cloudinary-cleanup calls (classic <script> scope, no direct
+    // access to `auth` here) to authenticate against the Vercel delete-image function.
+    window._fbGetIdToken = async function() {
+      try { return auth.currentUser ? await auth.currentUser.getIdToken() : null; }
+      catch (e) { return null; }
+    };
 
     // Expose config for REST API calls (user creation)
     window._fbConfig = firebaseConfig;
