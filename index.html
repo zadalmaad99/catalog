@@ -178,6 +178,7 @@
     }
     .order-card-media { position: relative; margin-bottom: 0.75rem; }
     .order-card-media .folder-preview-collage, .order-card-media .folder-icon-wrap { margin-bottom: 0; }
+    .order-card-media .folder-preview-collage { padding-top: 68%; }
     .order-card:hover .order-card-media .collage-cell img { transform: scale(1.05); }
     .order-card:hover .order-card-media .folder-icon-wrap { transform: scale(1.08); }
     .order-status-pill { font-size: 0.62rem; font-weight: 800; padding: 3px 9px; border-radius: 999px; white-space: nowrap; flex-shrink: 0; }
@@ -10373,7 +10374,7 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
       _orderExportBusy = true;
       showToast('Generating image…', 'info');
       try {
-        const canvas = await _buildOrderExportCanvas(currentOrder, selectedKeys);
+        const canvas = await _getOrGenerateOrderCanvas(currentOrder, selectedKeys);
         const blob = await new Promise(res => canvas.toBlob(res, 'image/png'));
         const name = buildDownloadFilename(currentOrder.name || 'order', 'png');
         const savedNatively = await window.saveBlobToDevice(blob, name, false);
@@ -10388,7 +10389,7 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
       _orderExportBusy = true;
       showToast('Generating PDF…', 'info');
       try {
-        const canvas = await _buildOrderExportCanvas(currentOrder, selectedKeys);
+        const canvas = await _getOrGenerateOrderCanvas(currentOrder, selectedKeys);
         await _loadExportLib('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js', () => window.jspdf);
         const { jsPDF } = window.jspdf;
         const imgData = canvas.toDataURL('image/jpeg', 0.95);
@@ -10416,6 +10417,17 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
 
     // Renders one of the app's own platform icons (stored as inline SVG data-URIs, which
     // ExcelJS can't embed directly) to a small PNG buffer so it can go inside a cell.
+    const _excelImageBufCache = new Map();
+    async function _fetchExcelPhotoBuf(imageUrl) {
+      if (_excelImageBufCache.has(imageUrl)) return _excelImageBufCache.get(imageUrl);
+      try {
+        const resp = await fetch(downloadCloudinaryUrl(imageUrl, '200x200', 'jpg'));
+        const buf = await resp.arrayBuffer();
+        _excelImageBufCache.set(imageUrl, buf);
+        return buf;
+      } catch (e) { console.error('excel image fetch failed', e); return null; }
+    }
+
     async function _platformIconPngBuffer(platformName) {
       const img = await _platformIconImageEl(platformName);
       if (!img) return null;
@@ -10471,7 +10483,15 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
         ws.views = [{ state: 'frozen', ySplit: headerRow.number }];
 
         const { rows, totalQty, totalRealIqd, totalCny, totalUsd } = _orderExportRows(currentOrder);
+        // Fetch every row's photo (+ platform icon) in parallel up front, instead of one
+        // `await fetch` per row inside the loop below — awaiting each item's network round-trip
+        // one after another was most of why Export felt slow, especially on an order with
+        // several items. Cached by image URL so re-exporting the same order (Excel again, or
+        // after already doing PDF/PNG) doesn't re-fetch anything already in memory.
+        const excelPhotoBufs = await Promise.all(rows.map(({ it }) => it.imageUrl ? _fetchExcelPhotoBuf(it.imageUrl) : Promise.resolve(null)));
+        const excelIconBufs = await Promise.all(rows.map(({ it }) => _platformIconPngBuffer(it.storePlatform)));
         let rIdx = headerRow.number + 1;
+        let rowI = 0;
         for (const { it, unitCny, unitUsd, qty, realCostIqd } of rows) {
           const rowData = {};
           if (has('pic')) rowData.pic = '';
@@ -10509,22 +10529,14 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
               storeCell.font = { size: 11, bold: true };
             }
           }
-          if (has('pic') && it.imageUrl) {
+          if (has('pic') && excelPhotoBufs[rowI]) {
             try {
-              // optimizedCloudinaryUrl uses f_auto (Cloudinary picks WEBP/AVIF/etc. based on
-              // content negotiation) — fine for an <img>/Image element, but here the bytes get
-              // written straight into the xlsx tagged as "jpeg", and real Excel on Windows
-              // refuses to render a file whose actual format doesn't match that tag ("The
-              // picture can't be displayed"). downloadCloudinaryUrl's explicit f_jpg guarantees
-              // the bytes really are a JPEG, matching the extension declared below.
-              const resp = await fetch(downloadCloudinaryUrl(it.imageUrl, '200x200', 'jpg'));
-              const buf = await resp.arrayBuffer();
-              const imgId = wb.addImage({ buffer: buf, extension: 'jpeg' });
+              const imgId = wb.addImage({ buffer: excelPhotoBufs[rowI], extension: 'jpeg' });
               ws.addImage(imgId, { tl: { col: 0.1, row: rIdx - 1 + 0.08 }, ext: { width: 84, height: 84 } });
             } catch (e) { console.error('excel image embed failed', e); }
           }
           if (has('store')) {
-            const iconBuf = await _platformIconPngBuffer(it.storePlatform);
+            const iconBuf = excelIconBufs[rowI];
             if (iconBuf) {
               const iconId = wb.addImage({ buffer: iconBuf, extension: 'png' });
               // Excel's own column-width-to-pixel formula (not a flat ×7) — matching it is what
@@ -10537,6 +10549,7 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
             }
           }
           rIdx++;
+          rowI++;
         }
         // Totals row — brand-orange fill + larger bold text so it visibly stands out as the
         // one line that matters most, instead of blending into the rest of the grid. Merges
@@ -10608,6 +10621,25 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
       _orderExportPendingFormat = null;
     };
 
+    // Hitting Export right after seeing the live preview was rebuilding the exact same canvas
+    // from scratch a second time (every photo re-fetched, every line re-drawn) — doubling the
+    // wait for no reason, since the preview's own canvas is already correct. Caching the last
+    // built canvas per (order, column selection) lets PDF/PNG export reuse it directly instead.
+    let _orderExportCanvasCache = null; // { orderId, keysStr, canvas }
+    function _orderExportKeysStr(selectedKeys) {
+      const keys = selectedKeys && selectedKeys.length ? selectedKeys : _ORDER_EXPORT_COL_ORDER;
+      return _ORDER_EXPORT_COL_ORDER.filter(k => keys.includes(k)).join(',');
+    }
+    async function _getOrGenerateOrderCanvas(o, selectedKeys) {
+      const keysStr = _orderExportKeysStr(selectedKeys);
+      if (_orderExportCanvasCache && _orderExportCanvasCache.orderId === o.id && _orderExportCanvasCache.keysStr === keysStr) {
+        return _orderExportCanvasCache.canvas;
+      }
+      const canvas = await _buildOrderExportCanvas(o, selectedKeys);
+      _orderExportCanvasCache = { orderId: o.id, keysStr, canvas };
+      return canvas;
+    }
+
     // Rebuilds the live preview image from whatever columns are currently checked — called on
     // open and on every checkbox toggle. A monotonically increasing token discards any render
     // that a newer toggle has already superseded, so fast repeated taps can't make an older,
@@ -10621,7 +10653,7 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
       if (!selected.length) { box.innerHTML = '<span class="od-export-cols-preview-loading">Pick at least one column</span>'; return; }
       const myToken = ++_orderExportPreviewToken;
       try {
-        const canvas = await _buildOrderExportCanvas(currentOrder, selected);
+        const canvas = await _getOrGenerateOrderCanvas(currentOrder, selected);
         if (myToken !== _orderExportPreviewToken) return;
         box.innerHTML = '';
         const img = document.createElement('img');
