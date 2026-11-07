@@ -3314,11 +3314,36 @@ service cloud.firestore {
           <div class="col-span-2">
             <div class="flex items-center justify-between mb-1.5">
               <label class="block text-xs font-bold text-gray-600" data-i18n="ageGroup">Age Group *</label>
-              <button type="button" onclick="window.addAgeRangeRow()"
-                class="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#e85d3a]/10 text-[#e85d3a] text-xs font-bold hover:bg-[#e85d3a]/20 transition-colors">
-                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
-                <span data-i18n="addRange">Add range</span>
-              </button>
+              <div class="flex items-center gap-1.5">
+                <button type="button" onclick="window.addAgeValueRow()"
+                  class="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#e85d3a]/10 text-[#e85d3a] text-xs font-bold hover:bg-[#e85d3a]/20 transition-colors">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
+                  <span data-i18n="addValue">Add value</span>
+                </button>
+                <button type="button" onclick="window.addAgeRangeRow()"
+                  class="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#e85d3a]/10 text-[#e85d3a] text-xs font-bold hover:bg-[#e85d3a]/20 transition-colors">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
+                  <span data-i18n="addRange">Add range</span>
+                </button>
+              </div>
+            </div>
+            <!-- Quick-add presets — the common size/age systems the admin actually uses
+                 (cm heights, letter sizes, numeric/odd-numeric size runs, a full 6m-12y age
+                 ladder) as one-tap buttons instead of typing each value in by hand. Each
+                 preset appends its own rows (or replaces the single still-empty placeholder
+                 row) so the admin can still edit/remove any individual value afterward. -->
+            <div class="flex items-center flex-wrap gap-1 mb-1.5">
+              <span class="text-[11px] font-bold text-gray-400" data-i18n="ageQuickAdd">Quick add:</span>
+              <button type="button" onclick="window.addAgePreset('cm')"
+                class="px-2 py-0.5 rounded-full border border-gray-200 bg-white text-[11px] font-bold text-gray-600 hover:border-[#e85d3a] hover:text-[#e85d3a] transition-colors" data-i18n="agePresetCm">Sizes (cm)</button>
+              <button type="button" onclick="window.addAgePreset('letters')"
+                class="px-2 py-0.5 rounded-full border border-gray-200 bg-white text-[11px] font-bold text-gray-600 hover:border-[#e85d3a] hover:text-[#e85d3a] transition-colors" data-i18n="agePresetLetters">S - 3XL</button>
+              <button type="button" onclick="window.addAgePreset('even')"
+                class="px-2 py-0.5 rounded-full border border-gray-200 bg-white text-[11px] font-bold text-gray-600 hover:border-[#e85d3a] hover:text-[#e85d3a] transition-colors" data-i18n="agePresetEven">6 - 12</button>
+              <button type="button" onclick="window.addAgePreset('odd')"
+                class="px-2 py-0.5 rounded-full border border-gray-200 bg-white text-[11px] font-bold text-gray-600 hover:border-[#e85d3a] hover:text-[#e85d3a] transition-colors" data-i18n="agePresetOdd">5 - 17</button>
+              <button type="button" onclick="window.addAgePreset('years')"
+                class="px-2 py-0.5 rounded-full border border-gray-200 bg-white text-[11px] font-bold text-gray-600 hover:border-[#e85d3a] hover:text-[#e85d3a] transition-colors" data-i18n="agePresetYears">Ages 6m-12y</button>
             </div>
             <div id="age-ranges-wrap" class="space-y-1.5"></div>
             <input id="f-age" type="hidden" />
@@ -4380,10 +4405,17 @@ service cloud.firestore {
         serialNumber: 'الرقم التسلسلي *',
         ageGroup: 'الفئة العمرية *',
         addRange: 'أضف فترة',
+        addValue: 'أضف قيمة',
         ageFrom: 'من',
         ageTo: 'إلى',
         ageYear: 'سنة',
         ageMonth: 'شهر',
+        ageQuickAdd: 'إضافة سريعة:',
+        agePresetCm: 'أحجام سم',
+        agePresetLetters: 'S - 3XL',
+        agePresetEven: '6 - 12',
+        agePresetOdd: '5 - 17',
+        agePresetYears: 'أعمار 6 شهر-12 سنة',
         price: 'السعر *',
         type: 'النوع',
         season: 'الموسم',
@@ -4548,10 +4580,17 @@ service cloud.firestore {
         serialNumber: 'ژمارەی زنجیرەیی *',
         ageGroup: 'گروپی تەمەن *',
         addRange: 'ماوە زیاد بکە',
+        addValue: 'بەها زیاد بکە',
         ageFrom: 'لە',
         ageTo: 'بۆ',
         ageYear: 'ساڵ',
         ageMonth: 'مانگ',
+        ageQuickAdd: 'زیادکردنی خێرا:',
+        agePresetCm: 'قەبارەی سم',
+        agePresetLetters: 'S - 3XL',
+        agePresetEven: '6 - 12',
+        agePresetOdd: '5 - 17',
+        agePresetYears: 'تەمەن 6مانگ-12ساڵ',
         price: 'نرخ *',
         type: 'جۆر',
         season: 'وەرز',
@@ -4716,10 +4755,17 @@ service cloud.firestore {
         serialNumber: 'Serial Number *',
         ageGroup: 'Age Group *',
         addRange: 'Add range',
+        addValue: 'Add value',
         ageFrom: 'from',
         ageTo: 'to',
         ageYear: 'year',
         ageMonth: 'month',
+        ageQuickAdd: 'Quick add:',
+        agePresetCm: 'Sizes (cm)',
+        agePresetLetters: 'S - 3XL',
+        agePresetEven: '6 - 12',
+        agePresetOdd: '5 - 17',
+        agePresetYears: 'Ages 6m-12y',
         price: 'Price *',
         type: 'Type',
         season: 'Season',
@@ -8130,29 +8176,42 @@ service cloud.firestore {
     };
 
     // ── Age ranges (sonbola.shop-style: persistent editable rows, not chips) ──
+    // Two row shapes now: a "range" row (the original from/to + unit pair, e.g. 6m_1y) and a
+    // "single" row — one freeform value (a discrete size like "90", "S", "XL", or a legacy
+    // unit-less tag) — since things like cm heights or letter sizes aren't a range at all, just
+    // a flat list of distinct values.
     function parseAgeTagParts(tag) {
-      const m = (tag || '').trim().match(/^(\d+)([my])_(\d+)([my])$/i);
-      if (!m) return null;
-      return { fromNum: m[1], fromUnit: m[2].toLowerCase(), toNum: m[3], toUnit: m[4].toLowerCase() };
+      const t = (tag || '').trim();
+      if (!t) return null;
+      const m = t.match(/^(\d+)([my])_(\d+)([my])$/i);
+      if (m) return { fromNum: m[1], fromUnit: m[2].toLowerCase(), toNum: m[3], toUnit: m[4].toLowerCase() };
+      // Anything else — preserved as-is in a single/freeform row instead of being silently
+      // dropped. Previously anything that didn't match the strict range shape above just
+      // vanished from this edit form (still saved on the model underneath, just invisible and
+      // impossible to remove/edit here).
+      return { single: true, val: t };
     }
     function ageRangeRowsFromString(str) {
-      const rows = (str || '').split(',').map(parseAgeTagParts).filter(Boolean);
+      const rows = (str || '').split(',').map(s => s.trim()).filter(Boolean).map(parseAgeTagParts).filter(Boolean);
       return rows.length ? rows : [{ fromNum: '', fromUnit: 'y', toNum: '', toUnit: 'y' }];
     }
     // Reads every row's current input values back into ageRangeRows and rebuilds the hidden
     // #f-age field — runs on every keystroke/select change, so there's no separate "commit"
-    // step; a row is a live, always-saved value the moment both numbers are filled in.
+    // step; a row is a live, always-saved value the moment it's filled in.
     window.syncAgeRanges = function() {
       const wrap = document.getElementById("age-ranges-wrap");
       if (!wrap) return;
-      const rowEls = Array.from(wrap.querySelectorAll(".age-range-row"));
-      ageRangeRows = rowEls.map(r => ({
-        fromNum: r.querySelector(".age-from-num").value.trim(),
-        fromUnit: r.querySelector(".age-from-unit").value,
-        toNum: r.querySelector(".age-to-num").value.trim(),
-        toUnit: r.querySelector(".age-to-unit").value,
-      }));
-      const tags = ageRangeRows.filter(r => r.fromNum && r.toNum).map(r => `${r.fromNum}${r.fromUnit}_${r.toNum}${r.toUnit}`);
+      const rowEls = Array.from(wrap.querySelectorAll(".age-row"));
+      ageRangeRows = rowEls.map(r => {
+        if (r.dataset.type === 'single') return { single: true, val: r.querySelector(".age-single-val").value.trim() };
+        return {
+          fromNum: r.querySelector(".age-from-num").value.trim(),
+          fromUnit: r.querySelector(".age-from-unit").value,
+          toNum: r.querySelector(".age-to-num").value.trim(),
+          toUnit: r.querySelector(".age-to-unit").value,
+        };
+      });
+      const tags = ageRangeRows.map(r => r.single ? r.val : ((r.fromNum && r.toNum) ? `${r.fromNum}${r.fromUnit}_${r.toNum}${r.toUnit}` : '')).filter(Boolean);
       document.getElementById("f-age").value = tags.join(',');
     };
     function renderAgeRangeRows() {
@@ -8166,8 +8225,18 @@ service cloud.firestore {
       // to change to support this.
       const yearLabel = window.t ? window.t('ageYear') : 'year';
       const monthLabel = window.t ? window.t('ageMonth') : 'month';
-      wrap.innerHTML = ageRangeRows.map((row, i) => `
-        <div class="flex items-center gap-1.5 age-range-row">
+      const removeBtn = i => ageRangeRows.length > 1 ? `<button type="button" onclick="window.removeAgeRangeRow(${i})"
+            class="w-9 h-9 rounded-lg text-red-400 hover:bg-red-50 hover:text-red-600 transition-colors flex items-center justify-center shrink-0">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M18 12H6"/></svg>
+          </button>` : '';
+      wrap.innerHTML = ageRangeRows.map((row, i) => row.single ? `
+        <div class="flex items-center gap-1.5 age-row" data-type="single">
+          <input type="text" placeholder="90 / S / XL" value="${escapeHtml(row.val || '')}"
+            oninput="window.syncAgeRanges()"
+            class="age-single-val flex-1 h-10 px-3 rounded-xl border border-gray-200 bg-gray-50 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-[#e85d3a]/30 focus:border-[#e85d3a] transition" />
+          ${removeBtn(i)}
+        </div>` : `
+        <div class="flex items-center gap-1.5 age-row" data-type="range">
           <input type="number" min="0" max="99" placeholder="${escapeHtml(fromLabel)}" value="${escapeHtml(row.fromNum || '')}"
             oninput="window.syncAgeRanges()"
             class="age-from-num w-16 h-10 px-2 text-center rounded-xl border border-gray-200 bg-gray-50 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-[#e85d3a]/30 focus:border-[#e85d3a] transition" />
@@ -8185,10 +8254,7 @@ service cloud.firestore {
             <option value="y" ${row.toUnit !== 'm' ? 'selected' : ''}>${escapeHtml(yearLabel)}</option>
             <option value="m" ${row.toUnit === 'm' ? 'selected' : ''}>${escapeHtml(monthLabel)}</option>
           </select>
-          ${ageRangeRows.length > 1 ? `<button type="button" onclick="window.removeAgeRangeRow(${i})"
-            class="w-9 h-9 rounded-lg text-red-400 hover:bg-red-50 hover:text-red-600 transition-colors flex items-center justify-center shrink-0">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M18 12H6"/></svg>
-          </button>` : ''}
+          ${removeBtn(i)}
         </div>`).join('');
       window.syncAgeRanges();
     }
@@ -8197,10 +8263,42 @@ service cloud.firestore {
       ageRangeRows.push({ fromNum: '', fromUnit: 'y', toNum: '', toUnit: 'y' });
       renderAgeRangeRows();
     };
+    window.addAgeValueRow = function() {
+      window.syncAgeRanges();
+      ageRangeRows.push({ single: true, val: '' });
+      renderAgeRangeRows();
+    };
     window.removeAgeRangeRow = function(i) {
       window.syncAgeRanges();
       if (ageRangeRows.length <= 1) return;
       ageRangeRows.splice(i, 1);
+      renderAgeRangeRows();
+    };
+
+    // Quick-add presets for the size/age systems admins actually use — one tap fills in every
+    // value instead of typing each one in by hand. Discrete-value presets (not real ranges) land
+    // as single/freeform rows; the age-ladder preset is a full run of 12 standard range rows
+    // (6m-1y, then 1y bands up to 11y-12y). Appends to whatever's already there, except when the
+    // only row so far is still the untouched empty placeholder — then it replaces it outright.
+    const _AGE_VALUE_PRESETS = {
+      cm:      ['90', '100', '110', '120', '130', '140'],
+      letters: ['S', 'M', 'L', 'XL', '2XL', '3XL'],
+      even:    ['6', '8', '10', '12'],
+      odd:     ['5', '7', '9', '11', '13', '15', '17'],
+    };
+    window.addAgePreset = function(type) {
+      window.syncAgeRanges();
+      const isEmptyPlaceholder = ageRangeRows.length === 1 && (
+        ageRangeRows[0].single ? !ageRangeRows[0].val : (!ageRangeRows[0].fromNum && !ageRangeRows[0].toNum)
+      );
+      let newRows;
+      if (type === 'years') {
+        newRows = [{ fromNum: '6', fromUnit: 'm', toNum: '1', toUnit: 'y' }];
+        for (let y = 1; y < 12; y++) newRows.push({ fromNum: String(y), fromUnit: 'y', toNum: String(y + 1), toUnit: 'y' });
+      } else {
+        newRows = (_AGE_VALUE_PRESETS[type] || []).map(v => ({ single: true, val: v }));
+      }
+      ageRangeRows = isEmptyPlaceholder ? newRows : ageRangeRows.concat(newRows);
       renderAgeRangeRows();
     };
 
