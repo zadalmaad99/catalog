@@ -321,6 +321,11 @@
     .od-size-toggle:active { transform: scale(0.94); }
     .od-size-toggle.active { background: #e85d3a; border-color: #e85d3a; color: #fff; }
     .od-size-toggle-custom { color: #e85d3a; border-style: dashed; font-size: 1rem; min-width: 32px; padding: 0; }
+    /* Quick-add size-system presets (letters, even/odd numeric runs) — visually set apart from
+       the toggleable cm-ladder chips before them with a thin divider, since tapping one of these
+       merges in a whole set at once rather than toggling a single value. */
+    .od-size-preset-sep { width: 1px; align-self: stretch; background: #ececec; flex-shrink: 0; }
+    .od-size-toggle-preset { background: #fdf4f0; border-color: #f3d9cc; color: #e85d3a; font-size: 0.68rem; }
     .od-item-cost {
       margin-top: 10px; padding-top: 10px; border-top: 1px dashed #f1e4da;
       display: flex; align-items: center; justify-content: space-between;
@@ -10021,6 +10026,31 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
     // Variants", never linked afterward, since not every color of the same model actually comes
     // in the same size run.
     const ORD_STANDARD_SIZES = ['70','80','90','100','110','120','130','140','150','160'];
+    // Same idea as the Catalog model's Age Group quick-add presets — the size chip row only
+    // ever offered the cm ladder above; letter sizes, even/odd numeric runs had to be typed in
+    // one at a time via the "+" custom button. These presets merge their values into whatever
+    // the row already has (same as the cm ladder already behaves) instead of replacing it.
+    const ORD_SIZE_PRESETS = {
+      letters: ['S', 'M', 'L', 'XL', '2XL', '3XL'],
+      even: ['6', '8', '10', '12'],
+      odd: ['5', '7', '9', '11', '13', '15', '17'],
+    };
+    function _sortOrderSizes(list) {
+      return list.sort((a, b) => {
+        const na = parseFloat(a), nb = parseFloat(b);
+        if (!isNaN(na) && !isNaN(nb)) return na - nb;
+        if (!isNaN(na)) return -1;
+        if (!isNaN(nb)) return 1;
+        return a.localeCompare(b);
+      });
+    }
+    window.odAddSizePreset = function(idx, type) {
+      const it = currentOrder && currentOrder.items && currentOrder.items[idx];
+      if (!it) return;
+      const cur = (it.sizes || []).map(String);
+      (ORD_SIZE_PRESETS[type] || []).forEach(s => { if (!cur.includes(s)) cur.push(s); });
+      window.updateOrderItem(idx, 'sizes', _sortOrderSizes(cur));
+    };
     window.odStandardSizeToggles = function(idx, sizes) {
       const list = (sizes || []).map(String);
       const set = new Set(list);
@@ -10037,14 +10067,7 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
       const cur = (it.sizes || []).map(String);
       const i = cur.indexOf(size);
       if (i === -1) cur.push(size); else cur.splice(i, 1);
-      cur.sort((a, b) => {
-        const na = parseFloat(a), nb = parseFloat(b);
-        if (!isNaN(na) && !isNaN(nb)) return na - nb;
-        if (!isNaN(na)) return -1;
-        if (!isNaN(nb)) return 1;
-        return a.localeCompare(b);
-      });
-      window.updateOrderItem(idx, 'sizes', cur);
+      window.updateOrderItem(idx, 'sizes', _sortOrderSizes(cur));
     };
     window.odAddCustomSize = async function(idx) {
       const val = await window.odPrompt(window.t ? window.t('addCustomSizePrompt') : 'Add size(s) — a number, a letter size (S/M/L), or a range like "150 to 170":');
@@ -10900,6 +10923,10 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
                 <div class="od-size-toggles" style="flex-wrap:nowrap;">
                   ${window.odStandardSizeToggles(idx, it.sizes||[])}
                   <button type="button" class="od-size-toggle od-size-toggle-custom" onclick="window.odAddCustomSize(${idx})" title="${escapeHtml(window.t?window.t('addCustomSize'):'Add a custom size')}">+</button>
+                  <span class="od-size-preset-sep"></span>
+                  <button type="button" class="od-size-toggle od-size-toggle-preset" onclick="window.odAddSizePreset(${idx},'letters')">S-3XL</button>
+                  <button type="button" class="od-size-toggle od-size-toggle-preset" onclick="window.odAddSizePreset(${idx},'even')">6-12</button>
+                  <button type="button" class="od-size-toggle od-size-toggle-preset" onclick="window.odAddSizePreset(${idx},'odd')">5-17</button>
                 </div>
               </div>
               <div class="od-strip-field od-strip-field-shrink">
