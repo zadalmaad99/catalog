@@ -2804,6 +2804,26 @@ service cloud.firestore {
         </div>
       </div>
 
+      <!-- Payment status — defaults to Paid on a new order (most orders are paid upfront to the
+           supplier); flipping to Partial reveals an amount-paid field so the admin can track how
+           much of the total is actually settled, since several orders can be open with a
+           supplier at once and it's easy to lose track of which ones still owe money. -->
+      <div class="bg-gray-50 rounded-xl p-3 mb-3">
+        <label class="block text-xs font-bold text-gray-600 mb-1" data-i18n="paymentStatus">Payment Status</label>
+        <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+          <div class="od-currency-toggle" id="od-pay-status-toggle">
+            <button type="button" id="od-pay-paid" onclick="window.setOrderPaymentStatus('paid')" data-i18n="payPaid">Paid</button>
+            <button type="button" id="od-pay-partial" onclick="window.setOrderPaymentStatus('partial')" data-i18n="payPartial">Partial</button>
+            <button type="button" id="od-pay-unpaid" onclick="window.setOrderPaymentStatus('unpaid')" data-i18n="payUnpaid">Unpaid</button>
+          </div>
+          <div id="od-pay-amount-wrap" class="hidden" style="display:flex; align-items:center; gap:6px;">
+            <input id="od-pay-amount" type="number" step="0.01" min="0" placeholder="0" data-i18n-ph="payAmountPh"
+              class="h-9 px-2 rounded-lg border border-gray-200 bg-white text-sm w-28" onchange="window.saveOrderField('paidAmountUsd', parseFloat(this.value)||0)" />
+            <span class="text-xs font-bold text-gray-500">$</span>
+          </div>
+        </div>
+      </div>
+
       <!-- Shipping — a per-piece $ amount that the table folds into each row's Real Cost (IQD) -->
       <div class="bg-orange-50 border border-orange-100 rounded-xl p-3 mb-3 flex items-end gap-3 flex-wrap">
         <div>
@@ -2831,6 +2851,15 @@ service cloud.firestore {
           </div>
         </div>
         <p class="text-xs text-gray-400 flex-1" style="min-width:200px;" data-i18n="shippingHint">Added to each item's real cost, shown in IQD, in its own column.</p>
+      </div>
+
+      <!-- Free-form notes — things that don't fit a dedicated field (a negotiated discount, a
+           sample batch before the full order, a quality issue to follow up on). -->
+      <div class="mb-3">
+        <label class="block text-xs font-bold text-gray-600 mb-1" data-i18n="orderNotes">Notes</label>
+        <textarea id="od-notes" rows="2" data-i18n-ph="orderNotesPh"
+          class="w-full px-3 py-2 rounded-xl border border-gray-200 bg-gray-50 text-sm"
+          onchange="window.saveOrderField('notes', this.value)"></textarea>
       </div>
 
       <!-- Line items — one card per item (not a spreadsheet-style table: a 9-column grid has no
@@ -4444,6 +4473,8 @@ service cloud.firestore {
         shippingMode: 'طريقة النقل', shippingNone: '—', shippingSea: 'بحري', shippingAir: 'جوي', shippingLand: 'بري',
         shippingPerPiece: 'سعر النقل لكل قطعة ($)', shippingTotal: 'إجمالي سعر النقل',
         shippingHint: 'يُقسَّم على كل القطع بنسبة كميتها، ويُضاف لتكلفة كل موديل الحقيقية بالدينار.',
+        paymentStatus: 'حالة الدفع', payPaid: 'مدفوعة', payPartial: 'دفعة جزئية', payUnpaid: 'غير مدفوعة',
+        payAmountPh: 'المبلغ المدفوع', orderNotes: 'ملاحظات', orderNotesPh: 'أي ملاحظات على هذا الطلب...',
         colPicture: 'الصورة', colStore: 'المنصة', colUnitCny: 'سعر القطعة ¥', colUnitUsd: '≈ $',
         colSizes: 'المقاسات', colQty: 'الكمية', colShipPc: 'نقل/قطعة $', colRealCost: 'التكلفة الحقيقية (دينار)',
         addItem: '+ إضافة صنف', receivedHint: 'مؤشَّر عليه كمُستلَم — أضفه للكاتالوج كمجلد.', addToFolders: 'إضافة إلى الفولدرات',
@@ -4619,6 +4650,8 @@ service cloud.firestore {
         shippingMode: 'شێوازی گواستنەوە', shippingNone: '—', shippingSea: 'دەریایی', shippingAir: 'ئاسمانی', shippingLand: 'وشکانی',
         shippingPerPiece: 'نرخی گواستنەوە بۆ هەر دانەیەک ($)', shippingTotal: 'کۆی نرخی گواستنەوە',
         shippingHint: 'بەسەر هەموو دانەکاندا دابەش دەکرێت بەگوێرەی ژمارەیان، و زیاد دەکرێت بۆ تێچووی ڕاستەقینەی هەر مۆدێلێک بە دینار.',
+        paymentStatus: 'دۆخی پارەدان', payPaid: 'دراوە', payPartial: 'بەشێک دراوە', payUnpaid: 'نەدراوە',
+        payAmountPh: 'بڕی دراو', orderNotes: 'تێبینی', orderNotesPh: 'هەر تێبینیەک لەسەر ئەم داواکارییە...',
         colPicture: 'وێنە', colStore: 'پلاتفۆرم', colUnitCny: 'نرخی دانە ¥', colUnitUsd: '≈ $',
         colSizes: 'قەبارەکان', colQty: 'ژمارە', colShipPc: 'گواستنەوە/دانە $', colRealCost: 'تێچووی ڕاستەقینە (دینار)',
         addItem: '+ زیادکردنی بابەت', receivedHint: 'وەک وەرگیراو نیشانە کراوە — زیادی بکە بۆ کاتالۆگ وەک فۆڵدەر.', addToFolders: 'زیادکردن بۆ فۆڵدەرەکان',
@@ -4794,6 +4827,8 @@ service cloud.firestore {
         shippingMode: 'Shipping Mode', shippingNone: '—', shippingSea: 'Sea', shippingAir: 'Air', shippingLand: 'Land',
         shippingPerPiece: 'Shipping per piece ($)', shippingTotal: 'Total Shipping Cost',
         shippingHint: "Split across every piece by quantity, then added to each item's real cost, shown in IQD.",
+        paymentStatus: 'Payment Status', payPaid: 'Paid', payPartial: 'Partial', payUnpaid: 'Unpaid',
+        payAmountPh: 'Amount paid', orderNotes: 'Notes', orderNotesPh: 'Any notes on this order...',
         colPicture: 'Picture', colStore: 'Platform', colUnitCny: 'Unit Price ¥', colUnitUsd: '≈ $',
         colSizes: 'Sizes', colQty: 'Qty', colShipPc: 'Ship/pc $', colRealCost: 'Real Cost IQD',
         addItem: '+ Add Item', receivedHint: 'Marked as received — add it to the Catalog as a folder.', addToFolders: 'Add to Folders',
@@ -10185,7 +10220,7 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
     window.createNewOrder = async function() {
       if (!window._fbSaveOrder) return;
       try {
-        const id = await window._fbSaveOrder({ name: 'New Order', items: [] }, null);
+        const id = await window._fbSaveOrder({ name: 'New Order', items: [], paymentStatus: 'paid' }, null);
         await window.openOrderDetail(id);
       } catch(e) { console.error(e); showToast('An error occurred while saving', 'error'); }
     };
@@ -10231,8 +10266,26 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
         : '';
       const receiveActions = document.getElementById('od-receive-actions');
       if (receiveActions) receiveActions.classList.toggle('hidden', !o.receiveDate);
+      const payStatus = o.paymentStatus || 'paid';
+      ['paid','partial','unpaid'].forEach(s => document.getElementById('od-pay-' + s).classList.toggle('active', s === payStatus));
+      const payAmountWrap = document.getElementById('od-pay-amount-wrap');
+      if (payAmountWrap) payAmountWrap.classList.toggle('hidden', payStatus !== 'partial');
+      const payAmountInput = document.getElementById('od-pay-amount');
+      if (payAmountInput) payAmountInput.value = o.paidAmountUsd || '';
+      document.getElementById('od-notes').value = o.notes || '';
       renderOrderRows();
     }
+
+    // Payment status defaults to 'paid' on a brand-new order (most purchases are paid upfront
+    // to the supplier) — see createNewOrder. Switching to 'partial' reveals the $ amount-paid
+    // field; switching away from it leaves whatever amount was already saved untouched (so
+    // flipping back to Partial later doesn't lose it).
+    window.setOrderPaymentStatus = function(status) {
+      window.saveOrderField('paymentStatus', status);
+      ['paid','partial','unpaid'].forEach(s => document.getElementById('od-pay-' + s).classList.toggle('active', s === status));
+      const payAmountWrap = document.getElementById('od-pay-amount-wrap');
+      if (payAmountWrap) payAmountWrap.classList.toggle('hidden', status !== 'partial');
+    };
 
     function orderMoney(n) { return (Math.round((n||0)*100)/100).toLocaleString('en-US'); }
 
