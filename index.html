@@ -3243,7 +3243,7 @@ service cloud.firestore {
   </div>
 
   <!-- ==================== ADD / EDIT MODEL MODAL (UNCHANGED) ==================== -->
-  <div id="model-modal" class="fixed inset-0 z-50 hidden items-center justify-center p-3 sm:p-4 modal-backdrop"
+  <div id="model-modal" class="fixed inset-0 z-[500] hidden items-center justify-center p-3 sm:p-4 modal-backdrop"
     onclick="if(event.target===this) closeModal()">
     <div class="modal-enter bg-white rounded-2xl w-full max-w-lg max-h-[92vh] overflow-y-auto shadow-2xl">
       <div class="flex items-center justify-between p-4 sm:p-5 border-b border-gray-100">
@@ -3598,7 +3598,7 @@ service cloud.firestore {
   </div>
 
   <!-- ==================== DELETE MODEL CONFIRM MODAL (UNCHANGED) ==================== -->
-  <div id="delete-modal" class="fixed inset-0 z-50 hidden items-center justify-center p-4 modal-backdrop"
+  <div id="delete-modal" class="fixed inset-0 z-[500] hidden items-center justify-center p-4 modal-backdrop"
     onclick="if(event.target===this) closeDeleteModal()">
     <div class="modal-enter bg-white rounded-2xl w-full max-w-sm p-6 shadow-2xl text-center">
       <div id="delete-confirm-step">
@@ -3654,7 +3654,7 @@ service cloud.firestore {
   </div>
 
   <!-- ==================== ADD / EDIT FOLDER MODAL (ADMIN ONLY) ==================== -->
-  <div id="folder-modal" class="fixed inset-0 z-50 hidden items-center justify-center p-4 modal-backdrop"
+  <div id="folder-modal" class="fixed inset-0 z-[500] hidden items-center justify-center p-4 modal-backdrop"
     onclick="if(event.target===this) closeFolderModal()">
     <div class="modal-enter bg-white rounded-2xl w-full max-w-sm shadow-2xl">
       <div class="flex items-center justify-between p-5 border-b border-gray-100">
@@ -3710,7 +3710,7 @@ service cloud.firestore {
   </div>
 
   <!-- ==================== DELETE FOLDER CONFIRM MODAL ==================== -->
-  <div id="delete-folder-modal" class="fixed inset-0 z-50 hidden items-center justify-center p-4 modal-backdrop"
+  <div id="delete-folder-modal" class="fixed inset-0 z-[500] hidden items-center justify-center p-4 modal-backdrop"
     onclick="if(event.target===this) closeDeleteFolderModal()">
     <div class="modal-enter bg-white rounded-2xl w-full max-w-sm p-6 shadow-2xl text-center">
       <div class="w-14 h-14 rounded-2xl bg-red-50 flex items-center justify-center mx-auto mb-4">
@@ -3737,7 +3737,7 @@ service cloud.firestore {
   </div>
 
   <!-- ==================== MOVE TO FOLDER MODAL ==================== -->
-  <div id="move-modal" class="fixed inset-0 z-50 hidden items-center justify-center p-4 modal-backdrop"
+  <div id="move-modal" class="fixed inset-0 z-[500] hidden items-center justify-center p-4 modal-backdrop"
     onclick="if(event.target===this) closeMoveModal()">
     <div class="modal-enter bg-white rounded-2xl w-full max-w-sm shadow-2xl">
       <div class="flex items-center justify-between p-5 border-b border-gray-100">
@@ -3763,7 +3763,7 @@ service cloud.firestore {
   </div>
 
   <!-- ==================== FOLDER DETAILS MODAL ==================== -->
-  <div id="folder-details-modal" class="fixed inset-0 z-50 hidden items-center justify-center p-4 modal-backdrop"
+  <div id="folder-details-modal" class="fixed inset-0 z-[500] hidden items-center justify-center p-4 modal-backdrop"
     onclick="if(event.target===this) closeFolderDetailsModal()">
     <div class="modal-enter bg-white rounded-2xl w-full max-w-sm shadow-2xl">
       <div class="flex items-center justify-between p-5 border-b border-gray-100">
@@ -3807,7 +3807,7 @@ service cloud.firestore {
 
   <!-- ==================== FOLDER DISCOUNT MODAL (ADMIN ONLY) ==================== -->
   <!-- ==================== FOLDER FONT SIZES MODAL ==================== -->
-  <div id="folder-font-sizes-modal" class="fixed inset-0 z-50 hidden items-center justify-center p-4 modal-backdrop"
+  <div id="folder-font-sizes-modal" class="fixed inset-0 z-[500] hidden items-center justify-center p-4 modal-backdrop"
     onclick="if(event.target===this) closeFolderFontSizesModal()">
     <div class="modal-enter bg-white rounded-2xl w-full max-w-sm shadow-2xl">
       <div class="flex items-center justify-between p-5 border-b border-gray-100">
@@ -3921,7 +3921,7 @@ service cloud.firestore {
     </div>
   </div>
 
-  <div id="folder-discount-modal" class="fixed inset-0 z-50 hidden items-center justify-center p-4 modal-backdrop"
+  <div id="folder-discount-modal" class="fixed inset-0 z-[500] hidden items-center justify-center p-4 modal-backdrop"
     onclick="if(event.target===this) closeFolderDiscountModal()">
     <div class="modal-enter bg-white rounded-2xl w-full max-w-sm shadow-2xl">
       <div class="flex items-center justify-between p-5 border-b border-gray-100">
@@ -3979,7 +3979,7 @@ service cloud.firestore {
   </div>
 
   <!-- ==================== GLOBAL FONT SIZES MODAL ==================== -->
-  <div id="global-font-sizes-modal" class="fixed inset-0 z-50 hidden items-center justify-center p-4 modal-backdrop"
+  <div id="global-font-sizes-modal" class="fixed inset-0 z-[500] hidden items-center justify-center p-4 modal-backdrop"
     onclick="if(event.target===this) closeGlobalFontSizesModal()">
     <div class="modal-enter bg-white rounded-2xl w-full max-w-sm shadow-2xl">
       <div class="flex items-center justify-between p-5 border-b border-gray-100">
@@ -4042,7 +4042,7 @@ service cloud.firestore {
   </div>
 
   <!-- ==================== GLOBAL DISCOUNT MODAL (ADMIN ONLY) ==================== -->
-  <div id="global-discount-modal" class="fixed inset-0 z-50 hidden items-center justify-center p-4 modal-backdrop"
+  <div id="global-discount-modal" class="fixed inset-0 z-[500] hidden items-center justify-center p-4 modal-backdrop"
     onclick="if(event.target===this) closeGlobalDiscountModal()">
     <div class="modal-enter bg-white rounded-2xl w-full max-w-sm shadow-2xl">
       <div class="flex items-center justify-between p-5 border-b border-gray-100">
@@ -4100,7 +4100,7 @@ service cloud.firestore {
   </div>
 
   <!-- ==================== FOLDER DISCOUNT MODAL (ADMIN ONLY) ==================== -->
-  <div id="folder-dl-modal" class="fixed inset-0 z-50 hidden items-center justify-center p-4 dl-modal-backdrop"
+  <div id="folder-dl-modal" class="fixed inset-0 z-[500] hidden items-center justify-center p-4 dl-modal-backdrop"
     onclick="if(event.target===this) closeFolderDlModal()">
     <div class="dl-modal-sheet">
 
@@ -5701,6 +5701,14 @@ service cloud.firestore {
           document.body.appendChild(bd);
         }
         bd.style.display = 'block';
+        // The mobile context menu is a full-width bottom sheet anchored to the screen's own
+        // bottom edge — exactly where the app's own Catalog/Orders tab bar also sits. Its
+        // z-index is already higher, but the admin reported taps near the bottom of a long menu
+        // (e.g. "Move to Trash", the very last item) landing on the tab bar underneath instead
+        // of the menu item being tapped. Hiding the tab bar outright while the sheet is open
+        // removes any ambiguity, instead of trying to out-stack it.
+        const bottomTabs = document.getElementById('app-bottom-tabs');
+        if (bottomTabs) bottomTabs.style.visibility = 'hidden';
         return;
       }
 
@@ -5718,6 +5726,8 @@ service cloud.firestore {
       document.getElementById("folder-context-menu").classList.add("hidden");
       const bd = document.getElementById('ctx-menu-backdrop');
       if (bd) bd.style.display = 'none';
+      const bottomTabs = document.getElementById('app-bottom-tabs');
+      if (bottomTabs) bottomTabs.style.visibility = '';
     }
 
     document.addEventListener("click", function(e) {
