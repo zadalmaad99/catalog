@@ -2635,6 +2635,15 @@ service cloud.firestore {
       allow write: if isSuperAdmin();
     }
 
+    // Purchase Orders — admin + co_admin manage orders; not folder-scoped (orders aren't
+    // per-catalog-folder) and not publicly readable (no "get: if true" — unlike models/folders,
+    // nothing links to an order from outside the app).
+    match /orders/{orderId} {
+      allow read: if isSuperAdmin() || isCoAdmin();
+      allow create, update: if isSuperAdmin() || isCoAdmin();
+      allow delete: if isSuperAdmin();
+    }
+
     match /login_logs/{logId} {
       allow read: if isSuperAdmin() || isCoAdmin();
       allow create: if request.auth != null;
@@ -4319,7 +4328,7 @@ service cloud.firestore {
   </div>
 
   <!-- LOGIN MODAL -->
-  <div id="login-modal" style="display:none" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+  <div id="login-modal" style="display:none" class="fixed inset-0 z-[500] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
     <div class="bg-white rounded-2xl shadow-2xl w-full max-w-xs p-6">
       <div class="flex items-center gap-3 mb-5">
         <div class="w-10 h-10 rounded-xl bg-[#e85d3a] flex items-center justify-center shrink-0">
@@ -11306,7 +11315,7 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
 
   <!-- ==================== SHARE LINK MODAL ==================== -->
   <!-- ==================== SHARE MODAL (Google Drive style) ==================== -->
-  <div id="share-modal" style="display:none" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+  <div id="share-modal" style="display:none" class="fixed inset-0 z-[500] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
     <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md modal-enter" style="font-family:'Inter',sans-serif;">
 
       <!-- Header -->
