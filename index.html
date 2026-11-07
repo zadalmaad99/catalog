@@ -11011,7 +11011,12 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
     // style, so a new order's first item doesn't collide with an existing/future catalog model.
     function _nextCatalogCode() {
       let bestPrefix = '', bestNum = -1, bestLen = 0;
+      // Sold-out models are excluded — an old archived/sold-out entry with a stray higher code
+      // (a one-off test model, a typo, a code that was later retired) shouldn't push the "next"
+      // suggestion past what's actually the latest ACTIVE catalog item, which is what the admin
+      // means by "the last code in the catalog".
       (allModels || []).forEach(m => {
+        if (m.soldOut) return;
         const code = (m.modelCode || '').trim();
         const match = code.match(/^([A-Za-z]*)(\d+)$/);
         if (!match) return;
@@ -11019,7 +11024,9 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
         if (num > bestNum) { bestNum = num; bestPrefix = match[1]; bestLen = match[2].length; }
       });
       if (bestNum < 0) return '';
-      return bestPrefix + String(bestNum + 1).padStart(bestLen, '0');
+      const next = bestPrefix + String(bestNum + 1).padStart(bestLen, '0');
+      console.log('[_nextCatalogCode]', 'highest active code:', bestPrefix + bestNum, '-> next:', next, 'from', (allModels||[]).length, 'models');
+      return next;
     }
 
     window.addOrderItem = function() {
