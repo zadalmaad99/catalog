@@ -3333,6 +3333,31 @@ service cloud.firestore {
           </div>
         </div>
 
+        <!-- Custom text note — optional, freely positioned/rotated over the photo (unlike the
+             code/price/age badges, which always sit in a fixed corner). dir="auto" so the input
+             itself lays out correctly whether the admin types Arabic, Kurdish, or English; the
+             drawn text on the actual exported image separately detects direction from the text
+             content (see drawModelNoteOnCanvas/_isRtlText), independent of the app's UI language. -->
+        <div class="mb-1">
+          <label class="block text-xs font-bold text-gray-600 mb-1.5" data-i18n="noteText">Custom Text (optional)</label>
+          <input id="f-note-text" type="text" dir="auto" data-i18n-ph="noteTextPh"
+            class="w-full h-10 px-3 rounded-xl border border-gray-200 bg-gray-50 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-[#e85d3a]/30 focus:border-[#e85d3a] transition"
+            oninput="window.onModelNoteTextInput()" />
+          <p class="text-[11px] text-gray-400 mt-1" data-i18n="noteTextHint">Drag the text on the photo below to position it; use the slider to rotate.</p>
+          <div id="note-preview-box" class="hidden mt-2 relative rounded-xl overflow-hidden bg-gray-100" style="touch-action:none;">
+            <img id="note-preview-img" class="w-full block pointer-events-none select-none" />
+            <div id="note-drag-handle"
+              class="absolute font-extrabold text-white px-1 whitespace-nowrap cursor-grab active:cursor-grabbing select-none"
+              style="left:50%; top:85%; transform:translate(-50%,-50%) rotate(0deg); text-shadow:0 1px 6px rgba(0,0,0,0.85); font-size:20px; touch-action:none;"
+              onpointerdown="window.startModelNoteDrag(event)"></div>
+          </div>
+          <div id="note-angle-row" class="hidden items-center gap-2 mt-2">
+            <span class="text-[11px] font-bold text-gray-400" data-i18n="noteRotate">Rotate:</span>
+            <input id="f-note-angle" type="range" min="0" max="359" value="0" class="flex-1 accent-[#e85d3a]" oninput="window.onModelNoteAngleInput(this.value)" />
+            <span id="note-angle-val" class="text-[11px] font-bold text-gray-500 w-10 text-right">0°</span>
+          </div>
+        </div>
+
         <!-- Form Fields -->
         <div class="grid grid-cols-2 gap-3">
           <div>
@@ -4421,6 +4446,9 @@ service cloud.firestore {
         imgSquare800: 'مربع — 800 × 800',
         modelCode: 'كود الموديل *',
         serialNumber: 'الرقم التسلسلي *',
+        noteText: 'نص مخصص (اختياري)', noteTextPh: 'اكتب أي نص...',
+        noteTextHint: 'اسحب النص فوق الصورة بالأسفل لتحديد مكانه؛ استخدم الشريط للتدوير.',
+        noteRotate: 'تدوير:',
         ageGroup: 'الفئة العمرية *',
         addRange: 'أضف فترة',
         ageFrom: 'من',
@@ -4591,6 +4619,9 @@ service cloud.firestore {
         imgSquare800: 'چوارگۆشە — 800 × 800',
         modelCode: 'کۆدی مۆدێل *',
         serialNumber: 'ژمارەی زنجیرەیی *',
+        noteText: 'نووسینی تایبەت (ئارەزوومەندانە)', noteTextPh: 'هەر نووسینێک بنووسە...',
+        noteTextHint: 'نووسینەکە بۆ سەر وێنەکە ڕاکێشە بۆ دیاریکردنی شوێنی؛ شریتەکە بۆ سوڕاندن بەکاربهێنە.',
+        noteRotate: 'سوڕاندن:',
         ageGroup: 'گروپی تەمەن *',
         addRange: 'ماوە زیاد بکە',
         ageFrom: 'لە',
@@ -4761,6 +4792,9 @@ service cloud.firestore {
         imgSquare800: 'Square — 800 × 800',
         modelCode: 'Model Code *',
         serialNumber: 'Serial Number *',
+        noteText: 'Custom Text (optional)', noteTextPh: 'Type any text...',
+        noteTextHint: 'Drag the text on the photo below to position it; use the slider to rotate.',
+        noteRotate: 'Rotate:',
         ageGroup: 'Age Group *',
         addRange: 'Add range',
         ageFrom: 'from',
@@ -4999,6 +5033,10 @@ service cloud.firestore {
     // instead of the old "type a range, press +, it becomes a static chip" flow.
     let ageRangeRows   = [{ fromNum: '', fromUnit: 'y', toNum: '', toUnit: 'y' }];
     let isSaving       = false;
+    // Working state for the Add/Edit Model form's optional custom-text overlay — x/y are 0-100
+    // (percent of the preview box, which maps 1:1 to the photo's own drawn area at export time
+    // since the preview image is shown unscaled/uncropped); angle is degrees.
+    let _modelNoteState = { x: 50, y: 85, angle: 0 };
 
     // Folder state
     let currentFolderId   = null;  // null = home/folders view
@@ -6218,6 +6256,7 @@ service cloud.firestore {
               ctx.fillStyle = "#fff";
               ctx.fillText(model.modelCode || "", SIZE/2, SIZE - footerH/2 + codeFs/2);
             }
+            drawModelNoteOnCanvas(ctx, model, x, y, w, h);
           }
           const mime = format === 'png' ? 'image/png' : 'image/jpeg';
           resolve(canvas.toDataURL(mime, 1));
@@ -7046,6 +7085,40 @@ service cloud.firestore {
     window.cleanAgeStr = cleanAgeStr;
     window.formatAgeTag = formatAgeTag;
     window.formatAgeTagCompact = formatAgeTagCompact;
+
+    // ── Optional free-form text note, drawn onto exported images ──
+    // A model may carry one optional custom caption (noteText) the admin positions and rotates
+    // freely over the photo (noteX/noteY as 0-100% of the photo's own drawn area, noteAngle in
+    // degrees) — unlike the code/price/age badges, which are always in a fixed corner. Shared by
+    // every export canvas path (single-model download, ZIP/gallery bulk export, Copy/Share) so
+    // the note shows up wherever the badges do, not just one of them.
+    //
+    // RTL is detected from the note's OWN text, not the app's current UI language — an Arabic or
+    // Kurdish caption should draw right-to-left even if the admin has the app set to English, and
+    // vice versa. Range covers Arabic block + Arabic Supplement + Arabic Presentation Forms,
+    // which also covers the extra Kurdish Sorani/Badini letters (ڕ ۆ ێ ە گ چ پ ڤ) used elsewhere
+    // in this app's Kurdish-text handling.
+    function _isRtlText(s) { return /[֐-ࣿיִ-﷿ﹰ-﻿]/.test(s || ''); }
+    function drawModelNoteOnCanvas(ctx, m, originX, originY, areaW, areaH) {
+      const text = (m.noteText || '').trim();
+      if (!text) return;
+      const nx = (m.noteX != null ? m.noteX : 50) / 100;
+      const ny = (m.noteY != null ? m.noteY : 85) / 100;
+      const angle = (m.noteAngle || 0) * Math.PI / 180;
+      const fs = Math.max(10, Math.round(areaW * 0.055));
+      ctx.save();
+      ctx.translate(originX + nx * areaW, originY + ny * areaH);
+      ctx.rotate(angle);
+      ctx.direction = _isRtlText(text) ? 'rtl' : 'ltr';
+      ctx.font = `800 ${fs}px Arial`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.shadowColor = 'rgba(0,0,0,0.8)';
+      ctx.shadowBlur = Math.max(4, fs * 0.25);
+      ctx.fillStyle = '#fff';
+      ctx.fillText(text, 0, 0);
+      ctx.restore();
+    }
 
     function badgeTextColor(bg) {
       const hex=bg.replace('#','');
@@ -8414,7 +8487,15 @@ service cloud.firestore {
         document.getElementById("img-preview").src = imgSrc;
         document.getElementById("img-preview-container").classList.remove("hidden");
         document.getElementById("img-placeholder").classList.add("hidden");
+        document.getElementById("note-preview-img").src = imgSrc;
       }
+      document.getElementById("f-note-text").value = model.noteText || '';
+      _modelNoteState = {
+        x: model.noteX != null ? model.noteX : 50,
+        y: model.noteY != null ? model.noteY : 85,
+        angle: model.noteAngle || 0,
+      };
+      window.onModelNoteTextInput();
       document.getElementById("f-img-size").value = model.imageSize || "original";
       setColor("age-color",   model.ageColor   || "#00bcd4");
       setColor("code-color",  model.codeColor  || "#ffffff");
@@ -8441,6 +8522,10 @@ service cloud.firestore {
       ageRangeRows = [{ fromNum: '', fromUnit: 'y', toNum: '', toUnit: 'y' }];
       renderAgeRangeRows();
       ["f-code","f-serial","f-age","f-price","f-category","f-season","f-gender"].forEach(id => { document.getElementById(id).value=''; });
+      document.getElementById("f-note-text").value = '';
+      document.getElementById("note-preview-img").src = '';
+      _modelNoteState = { x: 50, y: 85, angle: 0 };
+      window.onModelNoteTextInput();
       document.getElementById("f-img-size").value = "original";
       document.getElementById("img-preview-container").classList.add("hidden");
       document.getElementById("img-placeholder").classList.remove("hidden");
@@ -8680,6 +8765,8 @@ service cloud.firestore {
         }
         const data = {
           modelCode: code, serial, ageGroup: age, price, imageUrl, imageSize,
+          noteText: document.getElementById("f-note-text")?.value.trim() || '',
+          noteX: _modelNoteState.x, noteY: _modelNoteState.y, noteAngle: _modelNoteState.angle,
           category: document.getElementById("f-category")?.value || '',
           season:   document.getElementById("f-season")?.value || '',
           gender:   document.getElementById("f-gender")?.value || '',
@@ -8751,11 +8838,64 @@ service cloud.firestore {
     window.handleFileSelect= function(e) { const f=e.target.files[0]; if(f) setFile(f); };
     function setFile(file) {
       selectedFile=file; uploadedImageUrl=null;
-      const reader=new FileReader(); reader.onload=e=>{ document.getElementById("img-preview").src=e.target.result; document.getElementById("img-preview-container").classList.remove("hidden"); document.getElementById("img-placeholder").classList.add("hidden"); }; reader.readAsDataURL(file);
+      const reader=new FileReader(); reader.onload=e=>{ document.getElementById("img-preview").src=e.target.result; document.getElementById("img-preview-container").classList.remove("hidden"); document.getElementById("img-placeholder").classList.add("hidden"); document.getElementById("note-preview-img").src=e.target.result; window.onModelNoteTextInput(); }; reader.readAsDataURL(file);
     }
     window.clearImage = function(e) {
       e.stopPropagation(); selectedFile=null; uploadedImageUrl=null;
       document.getElementById("img-preview").src=''; document.getElementById("img-preview-container").classList.add("hidden"); document.getElementById("img-placeholder").classList.remove("hidden"); document.getElementById("img-input").value='';
+      document.getElementById("note-preview-img").src=''; window.onModelNoteTextInput();
+    };
+
+    // ── Custom text-note overlay — optional text the admin can drag/rotate anywhere over the
+    // model photo (unlike the code/price/age badges, which are fixed-position). The preview box
+    // mirrors the real export exactly: the image is shown unscaled (width:100%, height:auto, no
+    // crop), so a drag position captured here as a 0-100% fraction maps 1:1 onto the actual
+    // photo area in every export canvas (see drawModelNoteOnCanvas).
+    window.onModelNoteTextInput = function() {
+      const text = document.getElementById("f-note-text").value;
+      const hasImage = !!document.getElementById("note-preview-img").src;
+      const box = document.getElementById("note-preview-box");
+      const handle = document.getElementById("note-drag-handle");
+      const angleRow = document.getElementById("note-angle-row");
+      const show = !!text.trim() && hasImage;
+      box.classList.toggle("hidden", !show);
+      angleRow.classList.toggle("hidden", !show);
+      angleRow.classList.toggle("flex", show);
+      if (show) {
+        handle.textContent = text;
+        handle.style.left = _modelNoteState.x + '%';
+        handle.style.top = _modelNoteState.y + '%';
+        handle.style.transform = `translate(-50%,-50%) rotate(${_modelNoteState.angle}deg)`;
+        handle.dir = 'auto';
+        const slider = document.getElementById("f-note-angle");
+        slider.value = _modelNoteState.angle;
+        document.getElementById("note-angle-val").textContent = Math.round(_modelNoteState.angle) + '°';
+      }
+    };
+    window.onModelNoteAngleInput = function(val) {
+      _modelNoteState.angle = parseFloat(val) || 0;
+      document.getElementById("note-angle-val").textContent = Math.round(_modelNoteState.angle) + '°';
+      document.getElementById("note-drag-handle").style.transform = `translate(-50%,-50%) rotate(${_modelNoteState.angle}deg)`;
+    };
+    window.startModelNoteDrag = function(ev) {
+      ev.preventDefault();
+      ev.stopPropagation();
+      const box = document.getElementById("note-preview-box");
+      const handle = document.getElementById("note-drag-handle");
+      const boxRect = box.getBoundingClientRect();
+      const move = (e) => {
+        const x = Math.min(100, Math.max(0, ((e.clientX - boxRect.left) / boxRect.width) * 100));
+        const y = Math.min(100, Math.max(0, ((e.clientY - boxRect.top) / boxRect.height) * 100));
+        _modelNoteState.x = x; _modelNoteState.y = y;
+        handle.style.left = x + '%';
+        handle.style.top = y + '%';
+      };
+      const up = () => {
+        document.removeEventListener('pointermove', move);
+        document.removeEventListener('pointerup', up);
+      };
+      document.addEventListener('pointermove', move);
+      document.addEventListener('pointerup', up);
     };
 
     // ── Toggle Specs ──
@@ -9352,6 +9492,8 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
                 ctx.shadowColor="rgba(0,0,0,0.8)"; ctx.shadowBlur=12;
                 ctx.fillText((m.modelCode||'').replace(/^./,c=>c.toUpperCase()),pad,h-pad*0.85);
               }
+              ctx.shadowBlur=0;
+              drawModelNoteOnCanvas(ctx, m, 0, 0, w, h);
               canvas.toBlob(b2=>{blob=b2;res();},outMime,1);
             };img.src=imgUrl;});
             filename=`${_seq}_${m.modelCode||'model'}_${mode}.${outExt}`;
@@ -9580,6 +9722,8 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
         ctx.shadowColor='rgba(0,0,0,0.8)'; ctx.shadowBlur=12;
         ctx.fillText((m.modelCode||'').replace(/^./,c=>c.toUpperCase()), pad, h-pad*0.85);
       }
+      ctx.shadowBlur = 0;
+      drawModelNoteOnCanvas(ctx, m, 0, 0, w, h);
       return await new Promise(res => canvas.toBlob(res, outputMime, 1));
     }
 
