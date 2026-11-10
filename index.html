@@ -6507,8 +6507,13 @@ service cloud.firestore {
         // 1. Create new folder with same color, appending " Copy"
         const newFolderRef = await window._fbSaveFolderRaw({ name: copyName, color: srcFolder.color || "#e85d3a" });
         if (!newFolderRef) return;
-        // 2. Copy all models that belong to the original folder into the new folder
-        const modelsInFolder = allModels.filter(m => m.folderId === srcFolder.id);
+        // 2. Copy all models that belong to the original folder into the new folder — sort by
+        // serial first instead of trusting allModels' incoming order (that array is sorted by
+        // serial across ALL folders combined, so it only happens to match this folder's own
+        // sequence; sorting here explicitly keeps the copy in the same order no matter what).
+        const modelsInFolder = allModels
+          .filter(m => m.folderId === srcFolder.id)
+          .sort((a, b) => (Number(a.serial) || 0) - (Number(b.serial) || 0));
         if (window._fbDuplicateModels) {
           await window._fbDuplicateModels(modelsInFolder, newFolderRef.id);
         }
@@ -14335,11 +14340,17 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
 
     // ── Duplicate models into a new folder ──
     window._fbDuplicateModels = async function(models, newFolderId) {
-      for (const m of models) {
+      for (let i = 0; i < models.length; i++) {
+        const m = models[i];
         // Build copy from ALL existing fields, then override folder-specific ones
         const { id, ...rest } = m; // strip the Firestore doc id
         const copy = {
           ...rest,
+          // Re-number sequentially in the caller's given order (expected to already be
+          // sorted by serial) instead of keeping the old serial value — avoids ties/gaps
+          // from the source folder reshuffling the copy's order once it's re-queried.
+          serial: i + 1,
+          imageSize: m.imageSize || 'original',
           folderId: newFolderId,
           deleted: false,
           createdAt: serverTimestamp(),
