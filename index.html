@@ -2048,6 +2048,30 @@
     ::-webkit-scrollbar-track { background:transparent !important; }
     .folder-card:hover,.model-card:hover { box-shadow:0 14px 36px rgba(232,93,58,0.22) !important; }
   </style>
+  <script>
+    // Light/Dark switch: the glass theme is a separate <style>; "light" simply disables it.
+    (function(){
+      function stored(){ try { return localStorage.getItem('appTheme'); } catch(e) { return null; } }
+      function mark(mode){
+        document.querySelectorAll('.theme-opt').forEach(function(b){
+          var on = b.id === 'theme-btn-' + mode;
+          b.style.background = on ? 'linear-gradient(135deg,#ff7a5a,#e85d3a)' : '';
+          b.style.color = on ? '#fff' : '';
+          b.style.borderColor = on ? '#e85d3a' : '';
+        });
+      }
+      window.setAppTheme = function(mode){
+        mode = mode === 'light' ? 'light' : 'dark';
+        var st = document.getElementById('glass-theme');
+        if (st) st.media = mode === 'light' ? 'not all' : 'all';
+        document.documentElement.setAttribute('data-theme', mode);
+        try { localStorage.setItem('appTheme', mode); } catch(e) {}
+        mark(mode);
+      };
+      window.setAppTheme(stored() || 'dark');
+      document.addEventListener('DOMContentLoaded', function(){ mark(stored() || 'dark'); });
+    })();
+  </script>
 </head>
 <body class="min-h-screen">
 
@@ -12291,6 +12315,15 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
         <!-- ── TAB: APP SETTINGS ── -->
         <div id="admin-tab-appsettings" class="admin-tab-content hidden space-y-6">
           <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-4">App Branding</p>
+
+          <!-- Appearance: light / dark -->
+          <div class="bg-gray-50 rounded-2xl p-4 space-y-3">
+            <p class="text-xs font-black text-gray-600">Appearance</p>
+            <div class="flex gap-2">
+              <button type="button" id="theme-btn-light" onclick="setAppTheme('light')" class="theme-opt flex-1 h-11 rounded-xl text-sm font-bold border border-gray-200">&#9728;&#65039; Light</button>
+              <button type="button" id="theme-btn-dark" onclick="setAppTheme('dark')" class="theme-opt flex-1 h-11 rounded-xl text-sm font-bold border border-gray-200">&#127769; Dark Glass</button>
+            </div>
+          </div>
 
           <!-- App Name -->
           <div class="bg-gray-50 rounded-2xl p-4 space-y-3">
