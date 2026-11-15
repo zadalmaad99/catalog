@@ -1308,6 +1308,32 @@
         width: 28px !important; height: 28px !important;
         border-radius: 8px !important;
       }
+      .folder-context-menu {
+        background: radial-gradient(120% 60% at 50% 0%, rgba(232,93,58,0.28), transparent 60%), linear-gradient(180deg,#26264a 0%,#1a1a2e 55%) !important;
+        border-top: 1px solid rgba(255,255,255,0.12);
+      }
+      .folder-context-menu .ctx-head { display:flex; align-items:center; gap:12px; padding:4px 6px 14px; }
+      .folder-context-menu .ctx-head-ico { width:46px; height:46px; border-radius:15px; flex-shrink:0; display:flex; align-items:center; justify-content:center; background:linear-gradient(135deg,#ff7a5a,#e85d3a 60%,#c44828); box-shadow:0 6px 18px rgba(232,93,58,0.45), inset 0 1px 0 rgba(255,255,255,0.35); }
+      .folder-context-menu .ctx-head-txt { flex:1; min-width:0; }
+      .folder-context-menu .ctx-folder-title { display:block; color:#fff; font-weight:800; font-size:1.05rem; line-height:1.3; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+      .folder-context-menu .ctx-folder-sub { color:rgba(255,255,255,0.55); font-size:0.74rem; font-weight:600; margin-top:2px; }
+      .folder-context-menu .ctx-close { width:34px !important; height:34px; padding:0 !important; flex-shrink:0; justify-content:center; border-radius:50% !important; background:rgba(255,255,255,0.1) !important; color:rgba(255,255,255,0.8); font-size:0.8rem !important; }
+      .folder-context-menu .ctx-label { display:block; color:rgba(255,255,255,0.45); font-size:0.68rem; font-weight:800; letter-spacing:.08em; text-transform:uppercase; padding:6px 8px 8px; }
+      .folder-context-menu .menu-sep { display:none; }
+      .ctx-quick { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; padding:0 2px 8px; }
+      .folder-context-menu .ctx-quick button { flex-direction:column; justify-content:flex-start; text-align:center; gap:8px; padding:14px 6px 12px !important; min-height:84px; border:1px solid rgba(255,255,255,0.09); background:linear-gradient(160deg,rgba(255,255,255,0.10),rgba(255,255,255,0.03)); font-size:0.74rem !important; line-height:1.25; border-radius:16px !important; box-shadow:0 4px 14px rgba(0,0,0,0.22); animation:ctxPop .38s cubic-bezier(.2,.9,.3,1.2) both; }
+      .folder-context-menu .ctx-quick button:nth-child(2){animation-delay:.04s} .folder-context-menu .ctx-quick button:nth-child(3){animation-delay:.08s}
+      .folder-context-menu .ctx-quick button:nth-child(4){animation-delay:.12s} .folder-context-menu .ctx-quick button:nth-child(5){animation-delay:.16s} .folder-context-menu .ctx-quick button:nth-child(6){animation-delay:.2s}
+      .folder-context-menu .ctx-quick .menu-icon { width:40px !important; height:40px !important; border-radius:13px !important; box-shadow:0 0 0 1px currentColor inset, 0 6px 16px -4px currentColor; }
+      .folder-context-menu .ctx-quick .menu-icon svg { width:18px; height:18px; }
+      .ctx-admin-grid { display:flex; flex-direction:column; margin:0 2px 8px; border-radius:18px; overflow:hidden; border:1px solid rgba(255,255,255,0.09); background:rgba(255,255,255,0.05); }
+      .folder-context-menu .ctx-admin-grid button { border-radius:0 !important; padding:7px 14px !important; gap:12px; background:transparent; border-bottom:1px solid rgba(255,255,255,0.06); position:relative; }
+      .folder-context-menu .ctx-admin-grid button::after { content:''; margin-inline-start:auto; width:8px; height:8px; border-top:2px solid rgba(255,255,255,0.35); border-inline-end:2px solid rgba(255,255,255,0.35); transform:rotate(45deg); flex-shrink:0; }
+      .folder-context-menu .ctx-admin-grid button:last-child { border-bottom:none; }
+      .folder-context-menu .ctx-admin-grid #ctx-delete-folder-btn { justify-content:flex-start; background:linear-gradient(90deg,rgba(239,68,68,0.20),rgba(239,68,68,0.06)); }
+      .folder-context-menu .ctx-admin-grid #ctx-delete-folder-btn::after { border-color:rgba(239,68,68,0.6); }
+      .folder-context-menu button:active { transform:scale(.97); background:rgba(255,255,255,0.14); }
+      @keyframes ctxPop { from { opacity:0; transform:translateY(14px) scale(.92); } to { opacity:1; transform:none; } }
       /* Add drag indicator on top of context menu */
       .folder-context-menu::before {
         content: '';
@@ -1552,6 +1578,7 @@
       transition: background 0.13s;
     }
     .folder-context-menu button:hover { background: rgba(255,255,255,0.1); }
+    .ctx-head, .ctx-label { display:none; }
     .folder-context-menu .menu-sep {
       height: 1px;
       background: rgba(255,255,255,0.1);
@@ -3192,6 +3219,13 @@ service cloud.firestore {
 
   <!-- Folder Context Menu (global, repositioned dynamically) -->
   <div id="folder-context-menu" class="folder-context-menu hidden" onclick="event.stopPropagation()">
+    <div class="ctx-head">
+      <span class="ctx-head-ico"><svg width="22" height="22" fill="none" stroke="#fff" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"/></svg></span>
+      <div class="ctx-head-txt"><div id="ctx-folder-title" class="ctx-folder-title"></div><div id="ctx-folder-sub" class="ctx-folder-sub"></div></div>
+      <button type="button" class="ctx-close" onclick="closeFolderCtxMenu()" aria-label="Close">&#10005;</button>
+    </div>
+    <div class="ctx-label" data-i18n="ctxGroupQuick">Quick actions</div>
+    <div class="ctx-quick">
     <button onclick="ctxOpenFolder()">
       <span class="menu-icon" style="background:#e85d3a20;color:#e85d3a">
         <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 19a2 2 0 01-2-2V7a2 2 0 012-2h4l2 2h4a2 2 0 012 2v1M5 19h14a2 2 0 002-2v-5a2 2 0 00-2-2H9a2 2 0 00-2 2v5a2 2 0 01-2 2z"/></svg>
@@ -3228,8 +3262,11 @@ service cloud.firestore {
       </span>
       <span data-i18n="ctxGalleryDownload">Gallery - download</span>
     </button>
+    </div>
     <!-- Admin actions -->
     <div class="menu-sep ctx-admin-only" id="ctx-admin-sep" style="display:none"></div>
+    <div class="ctx-label ctx-admin-only" style="display:none" data-i18n="ctxGroupManage">Manage</div>
+    <div class="ctx-admin-grid">
     <button class="ctx-admin-only" id="ctx-discount-folder-btn" onclick="ctxOpenFolderDiscount()" style="display:none">
       <span class="menu-icon" style="background:#ef444420;color:#ef4444">
         <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/></svg>
@@ -3266,6 +3303,7 @@ service cloud.firestore {
       </span>
       <span data-i18n="ctxMoveToTrash">Move to Trash</span>
     </button>
+    </div>
   </div>
 
   <!-- ==================== IRAQ WEATHER MODAL ==================== -->
@@ -4503,7 +4541,7 @@ service cloud.firestore {
         ctxMakeCopy: 'نسخ الفولدر',
         ctxHideFromSearch: 'إخفاء من البحث',
         ctxUnhideFromSearch: 'إظهار في البحث',
-        ctxFontSizes: 'أحجام الخط',
+        ctxFontSizes: 'أحجام الخط', ctxGroupQuick: 'إجراءات سريعة', ctxGroupManage: 'إدارة الفولدر', ctxModelsCount: 'موديل',
         ctxMoveToTrash: 'نقل للمحذوفات',
         addNewModel: 'إضافة موديل جديد',
         editModel: 'تعديل الموديل',
@@ -4680,7 +4718,7 @@ service cloud.firestore {
         ctxMakeCopy: 'کۆپی فۆڵدەر',
         ctxHideFromSearch: 'شاردنەوە لە گەڕان',
         ctxUnhideFromSearch: 'پیشاندان لە گەڕان',
-        ctxFontSizes: 'قەبارەی فۆنت',
+        ctxFontSizes: 'قەبارەی فۆنت', ctxGroupQuick: 'کارە خێراکان', ctxGroupManage: 'بەڕێوەبردنی فۆڵدەر', ctxModelsCount: 'مۆدێل',
         ctxMoveToTrash: 'گواستنەوە بۆ زبڵدان',
         addNewModel: 'زیادکردنی مۆدێلی نوێ',
         editModel: 'دەستکاری مۆدێل',
@@ -4857,7 +4895,7 @@ service cloud.firestore {
         ctxMakeCopy: 'Make a Copy',
         ctxHideFromSearch: 'Hide from Search',
         ctxUnhideFromSearch: 'Unhide from Search',
-        ctxFontSizes: 'Font Sizes',
+        ctxFontSizes: 'Font Sizes', ctxGroupQuick: 'Quick actions', ctxGroupManage: 'Manage folder', ctxModelsCount: 'models',
         ctxMoveToTrash: 'Move to Trash',
         addNewModel: 'Add New Model',
         editModel: 'Edit Model',
@@ -5769,6 +5807,10 @@ service cloud.firestore {
         hideIcon.style.background = isHidden ? "#f59e0b20" : "#64748b20";
         hideIcon.style.color      = isHidden ? "#f59e0b"   : "#64748b";
       }
+      const _ct = document.getElementById("ctx-folder-title");
+      if (_ct) _ct.textContent = (ctxFolder && ctxFolder.name) || "";
+      const _cs = document.getElementById("ctx-folder-sub");
+      if (_cs && ctxFolder) _cs.textContent = allModels.filter(m => m.folderId === ctxFolder.id).length + " " + window.t("ctxModelsCount");
       menu.classList.remove("hidden");
 
       // On mobile: bottom sheet, no positioning needed
@@ -5806,6 +5848,7 @@ service cloud.firestore {
       menu.style.top  = top + "px";
     };
 
+    window.closeFolderCtxMenu = closeFolderCtxMenu;
     function closeFolderCtxMenu() {
       document.getElementById("folder-context-menu").classList.add("hidden");
       const bd = document.getElementById('ctx-menu-backdrop');
