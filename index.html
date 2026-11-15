@@ -11639,7 +11639,7 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
     // ── Convert a received order into a Catalog folder ──
     // One Model per line item (not expanded per size — the Catalog's model/age-range shape
     // doesn't map 1:1 onto "one SKU, several sizes/quantities"); price pre-filled from the
-    // item's own Real Cost (IQD) as a starting point. Code/age-group/category are left for the
+    // item's own Sell Price. Code/age-group/category are left for the
     // admin to fill in afterward through the normal Add/Edit Model flow — this just saves having
     // to re-upload every photo and retype every price by hand.
     window.convertOrderToFolder = async function() {
@@ -11662,7 +11662,7 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
             modelCode: (it.code||'').trim() || `${(currentOrder.name||'ORD').replace(/\s+/g,'')}-${i+1}`,
             serial: i,
             ageGroup: '',
-            price: Math.round(realCostIqd),
+            price: Math.round(parseFloat(it.sellPrice) || 0),
             imageUrl: it.imageUrl || '',
             imageSize: 'original',
             folderId,
