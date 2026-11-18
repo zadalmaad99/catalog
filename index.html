@@ -6488,6 +6488,8 @@ service cloud.firestore {
               ctx.fillText(model.modelCode || "", SIZE/2, SIZE - footerH/2 + codeFs/2);
             }
             drawModelNoteOnCanvas(ctx, model, x, y, w, h);
+          } else if (mode === 'clean') {
+            drawModelNoteOnCanvas(ctx, model, x, y, w, h);
           }
           const mime = format === 'png' ? 'image/png' : 'image/jpeg';
           resolve(canvas.toDataURL(mime, 1));
@@ -9636,7 +9638,7 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
           else{const resp=await fetch(imgUrl);if(!resp.ok) return;blob=await resp.blob();}
           const ct=blob.type||"image/jpeg";const ext=ct.includes("png")?"png":ct.includes("webp")?"webp":"jpg";
           let filename=`${_seq}_${m.modelCode||'model'}.${ext}`;
-          if(mode==="all"||mode==="code"){
+          if(mode==="all"||mode==="code"||(mode==="clean"&&(m.noteText||"").trim())){
             const canvas=document.createElement("canvas");const ctx=canvas.getContext("2d");const img=new Image();
             if(!imgUrl.startsWith('data:')) img.crossOrigin="anonymous";
             await new Promise(res=>{img.onload=async()=>{
@@ -9756,7 +9758,7 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
                   ctx.fillStyle=btc(pc); ctx.textAlign="center"; ctx.textBaseline="middle";
                   ctx.fillText(pt,px+pw/2,py+ph/2);
                 }
-              } else {
+              } else if(mode==="code"){
                 // code-only mode
                 const cc=m.codeColor||"#ffffff";
                 // ── Font sizes: folder-level overrides global default ──
@@ -9892,7 +9894,7 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
       const resp = await fetch(imgUrl);
       if (!resp.ok) return null;
       const rawBlob = await resp.blob();
-      if (mode === 'clean') return rawBlob;
+      if (mode === 'clean' && !(m.noteText || '').trim()) return rawBlob;
 
       const bmp = await createImageBitmap(rawBlob);
       const canvas = document.createElement('canvas');
@@ -9991,7 +9993,7 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
           ctx.fillStyle=btc(pc); ctx.textAlign='center'; ctx.textBaseline='middle';
           ctx.fillText(pt, px2+pw2/2, py2+ph/2);
         }
-      } else {
+      } else if (mode === 'code') {
         // code-only
         const cc = m.codeColor||'#ffffff';
         ctx.font=`800 ${cfs}px Arial`; ctx.fillStyle=cc;
