@@ -2072,6 +2072,11 @@
       document.addEventListener('DOMContentLoaded', function(){ mark(stored() || 'dark'); });
     })();
   </script>
+  <style>
+    .note-range { -webkit-appearance:none; appearance:none; flex:1; height:6px; border-radius:99px; background:#e6dfda !important; border:none !important; padding:0 !important; box-shadow:none !important; outline:none; }
+    .note-range::-webkit-slider-thumb { -webkit-appearance:none; width:24px; height:24px; border-radius:50%; background:linear-gradient(135deg,#ff7a5a,#e85d3a); border:3px solid #fff; box-shadow:0 2px 8px rgba(232,93,58,.5); }
+    .note-range::-moz-range-thumb { width:20px; height:20px; border-radius:50%; background:#e85d3a; border:3px solid #fff; }
+  </style>
 </head>
 <body class="min-h-screen">
 
@@ -3535,34 +3540,39 @@ service cloud.firestore {
         </div>
 
         <!-- Custom text note — Instagram-story style caption drawn onto the exported photo.
-             Multi-line (each line gets its own rounded highlight like IG "Highlight" text), freely
-             positioned/rotated/sized. The preview is a canvas drawn by the SAME function the
-             exports use (drawModelNoteOnCanvas), so what you see is exactly what is exported. -->
-        <div class="mb-1">
-          <label class="block text-xs font-bold text-gray-600 mb-1.5" data-i18n="noteText">Custom Text (optional)</label>
-          <textarea id="f-note-text" rows="3" dir="auto" data-i18n-ph="noteTextPh"
-            class="w-full px-3 py-2 rounded-xl border border-gray-200 bg-gray-50 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-[#e85d3a]/30 focus:border-[#e85d3a] transition"
-            style="line-height:1.6;resize:vertical;" oninput="window.onModelNoteTextInput()"></textarea>
-          <p class="text-[11px] text-gray-400 mt-1" data-i18n="noteTextHint">Each line becomes its own box. Drag on the photo to position it.</p>
-          <div id="note-tools" class="hidden mt-2 space-y-2">
-            <div id="note-preview-box" class="relative rounded-xl overflow-hidden bg-gray-100" style="touch-action:none;">
+             All lines sit together in one highlighted block; position/size/rotation are free.
+             The preview is a canvas drawn by the SAME function the exports use
+             (drawModelNoteOnCanvas), so what you see is exactly what is exported. -->
+        <div class="mb-3 rounded-2xl p-3" style="background:linear-gradient(160deg,#fff7f3,#f6f1ff);border:1px solid #f0e3dc;">
+          <div class="flex items-center gap-2 mb-2">
+            <span style="width:30px;height:30px;border-radius:10px;background:linear-gradient(135deg,#ff7a5a,#e85d3a);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:900;font-size:15px;box-shadow:0 4px 10px rgba(232,93,58,.35);">T</span>
+            <label class="text-sm font-black text-gray-700" data-i18n="noteText">Custom Text (optional)</label>
+          </div>
+          <textarea id="f-note-text" rows="2" dir="auto" data-i18n-ph="noteTextPh"
+            class="w-full px-3 py-2 rounded-xl border border-gray-200 bg-white text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-[#e85d3a]/30 focus:border-[#e85d3a] transition"
+            style="line-height:1.6;resize:none;" oninput="window.onModelNoteTextInput()"></textarea>
+          <p class="text-[11px] text-gray-400 mt-1" data-i18n="noteTextHint">All lines stay together in one block. Drag on the photo to position it.</p>
+          <div id="note-tools" class="hidden mt-3 space-y-3">
+            <div id="note-preview-box" class="relative rounded-2xl overflow-hidden bg-gray-100" style="touch-action:none;box-shadow:0 6px 20px rgba(26,26,46,.15);">
               <img id="note-preview-img" class="w-full block pointer-events-none select-none" onload="window.onModelNoteTextInput()" />
               <canvas id="note-preview-canvas" class="absolute inset-0 w-full h-full cursor-grab" style="touch-action:none;" onpointerdown="window.startModelNoteDrag(event)"></canvas>
             </div>
-            <div class="flex gap-2">
-              <button type="button" id="note-style-highlight" onclick="window.setModelNoteStyle('highlight')" class="flex-1 h-9 rounded-xl text-xs font-bold border border-gray-200" data-i18n="noteStyleHighlight">Highlight</button>
-              <button type="button" id="note-style-plain" onclick="window.setModelNoteStyle('plain')" class="flex-1 h-9 rounded-xl text-xs font-bold border border-gray-200" data-i18n="noteStylePlain">Plain</button>
+            <div class="flex p-1 rounded-xl" style="background:#ece7e3;">
+              <button type="button" id="note-style-highlight" onclick="window.setModelNoteStyle('highlight')" class="flex-1 h-9 rounded-lg text-xs font-black" data-i18n="noteStyleHighlight">Highlight</button>
+              <button type="button" id="note-style-plain" onclick="window.setModelNoteStyle('plain')" class="flex-1 h-9 rounded-lg text-xs font-black" data-i18n="noteStylePlain">Plain</button>
             </div>
-            <div id="note-swatches" class="flex items-center gap-2 flex-wrap"></div>
-            <div class="flex items-center gap-2">
-              <span class="text-[11px] font-bold text-gray-400 w-12" data-i18n="noteSize">Size</span>
-              <input id="f-note-size" type="range" min="50" max="220" value="100" class="flex-1 accent-[#e85d3a]" oninput="window.onModelNoteSizeInput(this.value)" />
-              <span id="note-size-val" class="text-[11px] font-bold text-gray-500 w-10 text-right">100%</span>
-            </div>
-            <div id="note-angle-row" class="flex items-center gap-2">
-              <span class="text-[11px] font-bold text-gray-400 w-12" data-i18n="noteRotate">Rotate:</span>
-              <input id="f-note-angle" type="range" min="0" max="359" value="0" class="flex-1 accent-[#e85d3a]" oninput="window.onModelNoteAngleInput(this.value)" />
-              <span id="note-angle-val" class="text-[11px] font-bold text-gray-500 w-10 text-right">0&deg;</span>
+            <div id="note-swatches" class="flex items-center justify-between gap-1"></div>
+            <div class="rounded-xl bg-white p-3 space-y-3" style="border:1px solid #f0e3dc;">
+              <div class="flex items-center gap-3">
+                <span class="text-[11px] font-black text-gray-500 w-14" data-i18n="noteSize">Size</span>
+                <input id="f-note-size" type="range" min="50" max="220" value="100" class="note-range" oninput="window.onModelNoteSizeInput(this.value)" />
+                <span id="note-size-val" class="text-[11px] font-black text-gray-600 w-11 text-right">100%</span>
+              </div>
+              <div id="note-angle-row" class="flex items-center gap-3">
+                <span class="text-[11px] font-black text-gray-500 w-14" data-i18n="noteRotate">Rotate:</span>
+                <input id="f-note-angle" type="range" min="0" max="359" value="0" class="note-range" oninput="window.onModelNoteAngleInput(this.value)" />
+                <span id="note-angle-val" class="text-[11px] font-black text-gray-600 w-11 text-right">0&deg;</span>
+              </div>
             </div>
           </div>
         </div>
@@ -4652,7 +4662,7 @@ service cloud.firestore {
         modelCode: 'كود الموديل *',
         serialNumber: 'الرقم التسلسلي *',
         noteText: 'نص مخصص (اختياري)', noteTextPh: 'اكتب أي نص...',
-        noteTextHint: 'كل سطر يصير في مربع مستقل. اسحب على الصورة لتحديد المكان.', noteStyleHighlight: 'مظلّل (ستوري)', noteStylePlain: 'عادي', noteSize: 'الحجم',
+        noteTextHint: 'كل الأسطر تبقى معاً في مربع واحد. اسحب على الصورة لتحديد المكان.', noteStyleHighlight: 'مظلّل (ستوري)', noteStylePlain: 'عادي', noteSize: 'الحجم',
         noteRotate: 'تدوير:',
         ageGroup: 'الفئة العمرية *',
         addRange: 'أضف فترة',
@@ -5006,7 +5016,7 @@ service cloud.firestore {
         modelCode: 'Model Code *',
         serialNumber: 'Serial Number *',
         noteText: 'Custom Text (optional)', noteTextPh: 'Type any text...',
-        noteTextHint: 'Each line becomes its own box. Drag on the photo to position it.', noteStyleHighlight: 'Highlight', noteStylePlain: 'Plain', noteSize: 'Size',
+        noteTextHint: 'All lines stay together in one block. Drag on the photo to position it.', noteStyleHighlight: 'Highlight', noteStylePlain: 'Plain', noteSize: 'Size',
         noteRotate: 'Rotate:',
         ageGroup: 'Age Group *',
         addRange: 'Add range',
@@ -7347,16 +7357,14 @@ service cloud.firestore {
       ctx.textBaseline = 'middle';
       const top = -(lines.length * lineH) / 2;
       if (style === 'highlight') {
-        // One rounded box per line, hugging its own width and overlapping slightly so the stack
-        // reads as a single Instagram-style highlighted block.
-        const widths = lines.map(l => ctx.measureText(l).width + padX * 2);
+        // ONE rounded block holding all the lines together (Instagram "Highlight" look), sized
+        // to the widest line.
+        const maxW = Math.max(...lines.map(l => ctx.measureText(l).width)) + padX * 2;
+        const totalH = lines.length * lineH + fs * 0.3;
         ctx.fillStyle = bg;
-        lines.forEach((l, i) => {
-          const w = widths[i], y = top + i * lineH;
-          ctx.beginPath();
-          ctx.roundRect(-w / 2, y - lineH * 0.02, w, lineH * 1.04, radius);
-          ctx.fill();
-        });
+        ctx.beginPath();
+        ctx.roundRect(-maxW / 2, top - fs * 0.15, maxW, totalH, radius);
+        ctx.fill();
         ctx.fillStyle = badgeTextColor(bg);
         lines.forEach((l, i) => ctx.fillText(l, 0, top + i * lineH + lineH / 2));
       } else {
@@ -9122,15 +9130,15 @@ service cloud.firestore {
       const hi = _modelNoteState.style !== 'plain';
       [['note-style-highlight', hi], ['note-style-plain', !hi]].forEach(([id, on]) => {
         const b = document.getElementById(id); if (!b) return;
-        b.style.background = on ? 'linear-gradient(135deg,#ff7a5a,#e85d3a)' : '';
-        b.style.color = on ? '#fff' : ''; b.style.borderColor = on ? '#e85d3a' : '';
+        b.style.background = on ? 'linear-gradient(135deg,#ff7a5a,#e85d3a)' : 'transparent';
+        b.style.color = on ? '#fff' : '#6b7280'; b.style.boxShadow = on ? '0 4px 12px rgba(232,93,58,.35)' : 'none';
       });
       const sw = document.getElementById('note-swatches');
       if (sw) {
         if (!sw.childElementCount) {
-          sw.innerHTML = _NOTE_COLORS.map(c => `<button type="button" data-c="${c}" onclick="window.setModelNoteColor('${c}')" style="width:30px;height:30px;border-radius:50%;background:${c};border:2px solid #d1d5db;"></button>`).join('');
+          sw.innerHTML = _NOTE_COLORS.map(c => `<button type="button" data-c="${c}" onclick="window.setModelNoteColor('${c}')" style="width:34px;height:34px;border-radius:50%;background:${c};border:2px solid #fff;flex-shrink:0;transition:transform .15s;"></button>`).join('');
         }
-        sw.querySelectorAll('button').forEach(b => { b.style.boxShadow = b.dataset.c === _modelNoteState.bg ? '0 0 0 3px #e85d3a' : 'none'; });
+        sw.querySelectorAll('button').forEach(b => { const on = b.dataset.c === _modelNoteState.bg; b.style.boxShadow = on ? '0 0 0 3px #e85d3a, 0 4px 10px rgba(0,0,0,.25)' : '0 1px 4px rgba(0,0,0,.3)'; b.style.transform = on ? 'scale(1.12)' : 'none'; });
       }
       const sl = document.getElementById("f-note-size"); if (sl) sl.value = _modelNoteState.size;
       const sv = document.getElementById("note-size-val"); if (sv) sv.textContent = Math.round(_modelNoteState.size) + '%';
