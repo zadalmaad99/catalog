@@ -2037,6 +2037,13 @@
     .modal-backdrop,.bg-black\/40,.bg-black\/50 { background:rgba(10,10,26,0.55) !important; -webkit-backdrop-filter:blur(8px); backdrop-filter:blur(8px); }
     .modal-enter { background:rgba(36,36,70,0.72) !important; -webkit-backdrop-filter:blur(26px) saturate(150%); backdrop-filter:blur(26px) saturate(150%); border:1px solid var(--g-line); color:var(--g-text); }
 
+    .dest-card { background:rgba(36,36,70,0.78) !important; border-color:var(--g-line); }
+    .dest-title,.dest-name { color:#fff !important; } .dest-sub { color:var(--g-mute) !important; }
+    .dest-row { background:rgba(255,255,255,0.07) !important; border-color:var(--g-line) !important; } .dest-count { background:rgba(255,255,255,0.12); color:#fff; }
+    #od-dialog-card { background:rgba(36,36,70,0.78) !important; border-color:var(--g-line); }
+    #od-dialog-title { color:#fff !important; } #od-dialog-message { color:var(--g-mute) !important; }
+    #od-dialog-actions button:first-child { background:rgba(255,255,255,0.12) !important; color:#fff !important; }
+
     /* login */
     #login-gate { background:
         radial-gradient(60% 40% at 15% 0%, rgba(232,93,58,0.45), transparent 70%),
@@ -2076,6 +2083,56 @@
     .note-range { -webkit-appearance:none; appearance:none; flex:1; height:6px; border-radius:99px; background:#e6dfda !important; border:none !important; padding:0 !important; box-shadow:none !important; outline:none; }
     .note-range::-webkit-slider-thumb { -webkit-appearance:none; width:24px; height:24px; border-radius:50%; background:linear-gradient(135deg,#ff7a5a,#e85d3a); border:3px solid #fff; box-shadow:0 2px 8px rgba(232,93,58,.5); }
     .note-range::-moz-range-thumb { width:20px; height:20px; border-radius:50%; background:#e85d3a; border:3px solid #fff; }
+  </style>
+  <style id="popup-theme">
+    /* Advanced popups: shared look for every dialog/modal */
+    #od-dialog-backdrop, .od-dialog-backdrop { background: radial-gradient(80% 50% at 50% 40%, rgba(232,93,58,0.18), rgba(12,12,28,0.62)) !important; -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); z-index: 99990 !important; }
+    #od-dialog-card, .od-dialog-card, .modal-enter {
+      border-radius: 26px !important; border: 1px solid rgba(255,255,255,0.55);
+      box-shadow: 0 30px 80px rgba(20,12,40,0.38), 0 2px 0 rgba(255,255,255,0.7) inset !important;
+      animation: popSpring .42s cubic-bezier(.2,.9,.3,1.25) both !important; }
+    @keyframes popSpring { from { opacity:0; transform: translateY(26px) scale(.9); } to { opacity:1; transform:none; } }
+    #od-dialog-card { max-width: 360px; text-align: center; padding: 28px 22px 22px; background: linear-gradient(180deg,#ffffff,#fbf6f2); position: relative; overflow: hidden; }
+    #od-dialog-card::before { content:''; position:absolute; left:50%; top:-70px; width:240px; height:160px; transform:translateX(-50%); border-radius:50%; background: radial-gradient(closest-side, rgba(232,93,58,0.28), transparent); pointer-events:none; }
+    #od-dialog-card.is-danger::before { background: radial-gradient(closest-side, rgba(239,68,68,0.32), transparent); }
+    #od-dialog-icon { width:68px; height:68px; margin:0 auto 14px; border-radius:22px; display:flex; align-items:center; justify-content:center; position:relative;
+      background: linear-gradient(135deg,#ff7a5a,#e85d3a 60%,#c44828); box-shadow: 0 12px 28px rgba(232,93,58,0.45), inset 0 1px 0 rgba(255,255,255,0.4); }
+    #od-dialog-card.is-danger #od-dialog-icon { background: linear-gradient(135deg,#f87171,#ef4444 60%,#b91c1c); box-shadow: 0 12px 28px rgba(239,68,68,0.45), inset 0 1px 0 rgba(255,255,255,0.4); }
+    #od-dialog-card.is-success::before { background: radial-gradient(closest-side, rgba(34,197,94,0.32), transparent); }
+    #od-dialog-card.is-success #od-dialog-icon { background: linear-gradient(135deg,#4ade80,#22c55e 60%,#15803d); box-shadow: 0 12px 28px rgba(34,197,94,0.45), inset 0 1px 0 rgba(255,255,255,0.4); }
+    #od-dialog-card.is-success #od-dialog-ok-btn { background: linear-gradient(135deg,#4ade80,#22c55e); box-shadow: 0 8px 20px rgba(34,197,94,0.4); }
+    #od-dialog-title { font-size: 1.15rem; font-weight: 900; color: #1a1a2e; margin-bottom: 6px; position:relative; }
+    #od-dialog-message { font-size: 0.88rem; font-weight: 600; color: #6b7280; line-height: 1.65; white-space: pre-line; position:relative; }
+    #od-dialog-input { margin-top: 14px; text-align:center; font-weight:800; font-size:1rem; height:48px; border-radius:14px; }
+    #od-dialog-actions { margin-top: 22px; gap: 10px; position:relative; }
+    #od-dialog-actions button { height: 48px; border-radius: 15px; font-size: .9rem; transition: transform .12s, box-shadow .2s; }
+    #od-dialog-actions button:active { transform: scale(.96); }
+    #od-dialog-actions button:first-child { background:#f1ece8; color:#5b6472; }
+    #od-dialog-ok-btn { background: linear-gradient(135deg,#ff7a5a,#e85d3a); box-shadow: 0 8px 20px rgba(232,93,58,0.4); }
+    #od-dialog-ok-btn.danger { background: linear-gradient(135deg,#f87171,#ef4444); box-shadow: 0 8px 20px rgba(239,68,68,0.4); }
+    .modal-backdrop { -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); }
+  </style>
+  <style id="dest-popup">
+    .dest-card { max-width: 380px !important; text-align: start; max-height: 86vh; display:flex; flex-direction:column; }
+    .dest-head { display:flex; align-items:center; gap:12px; margin-bottom:14px; }
+    .dest-head-ico { width:48px; height:48px; border-radius:16px; display:flex; align-items:center; justify-content:center; font-size:22px; background:linear-gradient(135deg,#ff7a5a,#e85d3a); box-shadow:0 8px 20px rgba(232,93,58,.4); }
+    .dest-title { font-size:1.05rem; font-weight:900; color:#1a1a2e; }
+    .dest-sub { font-size:.78rem; font-weight:600; color:#6b7280; margin-top:2px; }
+    .dest-opt { width:100%; display:flex; align-items:center; gap:12px; padding:12px; border-radius:16px; border:1.5px dashed #e85d3a; background:rgba(232,93,58,.08); text-align:start; cursor:pointer; }
+    .dest-opt b { display:block; font-size:.9rem; font-weight:900; color:#e85d3a; }
+    .dest-opt small { display:block; font-size:.72rem; color:#6b7280; font-weight:600; margin-top:2px; }
+    .dest-opt-ico { width:36px; height:36px; border-radius:12px; background:#e85d3a; color:#fff; display:flex; align-items:center; justify-content:center; font-size:16px; flex-shrink:0; }
+    .dest-or { font-size:.72rem; font-weight:800; color:#9ca3af; text-align:center; margin:12px 0 8px; }
+    .dest-list { overflow-y:auto; max-height:34vh; display:flex; flex-direction:column; gap:6px; padding:2px; }
+    .dest-row { display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:14px; border:1.5px solid #ece7e3; background:#fff; cursor:pointer; text-align:start; transition:transform .12s; }
+    .dest-row:active { transform:scale(.98); }
+    .dest-row.sel { border-color:#e85d3a; background:rgba(232,93,58,.1); box-shadow:0 0 0 3px rgba(232,93,58,.18); }
+    .dest-name { flex:1; font-size:.88rem; font-weight:800; color:#1a1a2e; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .dest-count { font-size:.72rem; font-weight:900; color:#6b7280; background:#f3f4f6; border-radius:99px; padding:2px 9px; }
+    .dest-empty { text-align:center; color:#9ca3af; font-size:.8rem; padding:12px; }
+    #dest-ok:disabled { opacity:.4; box-shadow:none; }
+    .dest-card .od-dialog-actions button:first-child { background:#f1ece8; color:#5b6472; }
+    .dest-card .od-dialog-ok-btn { background:linear-gradient(135deg,#ff7a5a,#e85d3a); color:#fff; }
   </style>
 </head>
 <body class="min-h-screen">
@@ -2442,6 +2499,12 @@
             </svg>
           </span>
           <span data-i18n="addModel">Add Model</span>
+        </button>
+
+        <button id="sheet-clear-notes" onclick="clearAllNotes();closeSideMenu();"
+          class="in-folder-only w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold text-gray-700 hover:bg-orange-50 transition-colors" style="display:none">
+          <span class="w-8 h-8 rounded-lg bg-[#2f9bf0] flex items-center justify-center text-white shrink-0 font-black">T</span>
+          <span data-i18n="clearAllNotes">Clear all highlights</span>
         </button>
 
         <button id="sheet-trash" onclick="openTrashView();closeSideMenu();"
@@ -3098,6 +3161,8 @@ service cloud.firestore {
          file:// says…") looks jarringly out of place next to the rest of this app's design. -->
     <div id="od-dialog-backdrop" class="hidden" onclick="if(event.target===this) window.odDialogRespond(null)">
       <div id="od-dialog-card">
+        <div id="od-dialog-icon"></div>
+        <h3 id="od-dialog-title"></h3>
         <p id="od-dialog-message"></p>
         <input id="od-dialog-input" class="od-input hidden" />
         <div id="od-dialog-actions">
@@ -4662,7 +4727,7 @@ service cloud.firestore {
         modelCode: 'كود الموديل *',
         serialNumber: 'الرقم التسلسلي *',
         noteText: 'نص مخصص (اختياري)', noteTextPh: 'اكتب أي نص...',
-        noteTextHint: 'كل الأسطر تبقى معاً في مربع واحد. اسحب على الصورة لتحديد المكان.', noteStyleHighlight: 'مظلّل (ستوري)', noteStylePlain: 'عادي', noteSize: 'الحجم',
+        noteTextHint: 'كل الأسطر تبقى معاً في مربع واحد. اسحب على الصورة لتحديد المكان.', noteStyleHighlight: 'مظلّل (ستوري)', clearAllNotes: 'مسح كل الهايلايتات', dlgConfirmTitle: 'تأكيد', dlgDoneTitle: 'تم بنجاح', dlgDangerTitle: 'هل أنت متأكد؟', dlgInputTitle: 'أدخل قيمة', noteStylePlain: 'عادي', noteSize: 'الحجم',
         noteRotate: 'تدوير:',
         ageGroup: 'الفئة العمرية *',
         addRange: 'أضف فترة',
@@ -4839,7 +4904,7 @@ service cloud.firestore {
         modelCode: 'کۆدی مۆدێل *',
         serialNumber: 'ژمارەی زنجیرەیی *',
         noteText: 'نووسینی تایبەت (ئارەزوومەندانە)', noteTextPh: 'هەر نووسینێک بنووسە...',
-        noteTextHint: 'هەر دێڕێک دەبێتە سندوقێکی جیا. لەسەر وێنەکە ڕایبکێشە بۆ شوێن.', noteStyleHighlight: 'هایلایت (ستۆری)', noteStylePlain: 'ئاسایی', noteSize: 'قەبارە',
+        noteTextHint: 'هەر دێڕێک دەبێتە سندوقێکی جیا. لەسەر وێنەکە ڕایبکێشە بۆ شوێن.', noteStyleHighlight: 'هایلایت (ستۆری)', clearAllNotes: 'سڕینەوەی هەموو هایلایتەکان', dlgConfirmTitle: 'دووپاتکردنەوە', dlgDoneTitle: 'بە سەرکەوتوویی ئەنجامدرا', dlgDangerTitle: 'دڵنیایت؟', dlgInputTitle: 'بەهایەک بنووسە', noteStylePlain: 'ئاسایی', noteSize: 'قەبارە',
         noteRotate: 'سوڕاندن:',
         ageGroup: 'گروپی تەمەن *',
         addRange: 'ماوە زیاد بکە',
@@ -5016,7 +5081,7 @@ service cloud.firestore {
         modelCode: 'Model Code *',
         serialNumber: 'Serial Number *',
         noteText: 'Custom Text (optional)', noteTextPh: 'Type any text...',
-        noteTextHint: 'All lines stay together in one block. Drag on the photo to position it.', noteStyleHighlight: 'Highlight', noteStylePlain: 'Plain', noteSize: 'Size',
+        noteTextHint: 'All lines stay together in one block. Drag on the photo to position it.', noteStyleHighlight: 'Highlight', clearAllNotes: 'Clear all highlights', dlgConfirmTitle: 'Please confirm', dlgDoneTitle: 'Done', dlgDangerTitle: 'Are you sure?', dlgInputTitle: 'Enter a value', noteStylePlain: 'Plain', noteSize: 'Size',
         noteRotate: 'Rotate:',
         ageGroup: 'Age Group *',
         addRange: 'Add range',
@@ -5828,7 +5893,7 @@ service cloud.firestore {
         showToast("You don't have permission to permanently delete", "error");
         return;
       }
-      if (!confirm(`Permanently delete "${folderName}"? This cannot be undone.`)) return;
+      if (!(await window.odConfirm(`Permanently delete "${folderName}"? This cannot be undone.`, { danger: true }))) return;
       try {
         if (window._fbPermanentDeleteFolder) await window._fbPermanentDeleteFolder(folderId);
         showToast("Folder permanently deleted", "success");
@@ -5845,7 +5910,7 @@ service cloud.firestore {
       }
       const trashed = allFolders.filter(f => f.deleted);
       if (!trashed.length) return;
-      if (!confirm(`Permanently delete all ${trashed.length} folder(s) in trash? This cannot be undone.`)) return;
+      if (!(await window.odConfirm(`Permanently delete all ${trashed.length} folder(s) in trash? This cannot be undone.`, { danger: true }))) return;
       try {
         for (const f of trashed) {
           if (window._fbPermanentDeleteFolder) await window._fbPermanentDeleteFolder(f.id);
@@ -8290,7 +8355,7 @@ service cloud.firestore {
         await navigator.clipboard.writeText(url);
         if (label) { const prev = label.textContent; label.textContent = t.copiedLabel; setTimeout(() => { label.textContent = prev; }, 1800); }
       } catch (e) {
-        window.prompt('Copy this link:', url);
+        await window.odPrompt('Copy this link:', url);
       }
     };
 
@@ -9234,6 +9299,8 @@ service cloud.firestore {
       const _isAdminRole = _role === "admin";
       const sheetAddModel = document.getElementById("sheet-add-model");
       if (sheetAddModel) sheetAddModel.style.display = inFolder ? "" : "none";
+      const sheetClearNotes = document.getElementById("sheet-clear-notes");
+      if (sheetClearNotes) sheetClearNotes.style.display = (inFolder && window._canEditCatalogUI && window._canEditCatalogUI()) ? "" : "none";
       const sheetAddFolder = document.getElementById("sheet-add-folder");
       if (sheetAddFolder) sheetAddFolder.style.display = (!inFolder && _isAdminRole) ? "" : "none";
       const sheetTrash = document.getElementById("sheet-trash");
@@ -9383,18 +9450,34 @@ service cloud.firestore {
     }
     window.updateSelectionBar = updateSelectionBar;
 
+    // ── Clear every text highlight in the open folder (one tap) ──
+    window.clearAllNotes = async function() {
+      const fid = currentFolderId;
+      const withNote = allModels.filter(m => m.folderId === fid && (m.noteText || '').trim());
+      if (!withNote.length) { showToast('No highlights to clear', 'info'); return; }
+      if (!(await window.odConfirm(`Remove the highlight text from ${withNote.length} model(s) in this folder? The photos themselves are not changed.`, { danger: true }))) return;
+      try {
+        const n = await window._fbBulkClearNotes(withNote.map(m => m.id));
+        applyFilters();
+        await window.odAlert(`Cleared ${n} highlight${n === 1 ? '' : 's'} from this folder.\nThe photos themselves were not changed.`, { title: 'Highlights cleared' });
+      } catch (e) {
+        console.error(e);
+        showToast('An error occurred while saving', 'error');
+      }
+    };
+
     // ── Bulk price change for the selected models ──
     // Adds (or, with a negative number, subtracts) one amount to the price of every selected
     // model. Asks for the amount, then confirms the exact count before writing anything.
     window.bulkAdjustPrice = async function() {
       const ids = [...selectedIds];
       if (!ids.length || !window._fbBulkAdjustPrice) return;
-      const raw = window.prompt(`Add to the price of ${ids.length} selected model(s).
+      const raw = await window.odPrompt(`Add to the price of ${ids.length} selected model(s).
 Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
       if (raw === null) return;
       const delta = parseFloat(String(raw).replace(/,/g, ''));
       if (!isFinite(delta) || delta === 0) { showToast('Enter a valid amount', 'error'); return; }
-      if (!window.confirm(`Change the price of ${ids.length} model(s) by ${delta > 0 ? '+' : ''}${delta}?`)) return;
+      if (!(await window.odConfirm(`Change the price of ${ids.length} model(s) by ${delta > 0 ? '+' : ''}${delta}?`))) return;
       try {
         const n = await window._fbBulkAdjustPrice(ids, delta);
         showToast(`✓ ${n} prices updated`, 'success');
@@ -9521,10 +9604,10 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
           await navigator.clipboard.writeText(url);
           setStatus(`Link copied (${ids.length} models) ✓`);
         } else {
-          window.prompt('Copy this link:', url);
+          await window.odPrompt('Copy this link:', url);
         }
       } catch (e) {
-        window.prompt('Copy this link:', url);
+        await window.odPrompt('Copy this link:', url);
       }
     };
 
@@ -10396,10 +10479,23 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
     // the same way their native counterparts return synchronously — just async, so every caller
     // needs `await`. Only one can be open at a time, same as the native dialogs.
     let _odDialogResolve = null;
-    function odDialogOpen(message, { withInput, defaultValue, danger } = {}) {
+    function odDialogOpen(message, { withInput, defaultValue, danger, success, title } = {}) {
       return new Promise(resolve => {
         _odDialogResolve = resolve;
         document.getElementById('od-dialog-message').textContent = message;
+        const _card = document.getElementById('od-dialog-card');
+        _card.classList.toggle('is-danger', !!danger);
+        _card.classList.toggle('is-success', !!success);
+        document.querySelector('#od-dialog-actions button:first-child').style.display = success ? 'none' : '';
+        const _tr = (k, d) => (window.t && window.t(k) && window.t(k) !== k) ? window.t(k) : d;
+        document.getElementById('od-dialog-title').textContent = title ? title : success ? _tr('dlgDoneTitle', 'Done') : danger ? _tr('dlgDangerTitle', 'Are you sure?') : (withInput ? _tr('dlgInputTitle', 'Enter a value') : _tr('dlgConfirmTitle', 'Please confirm'));
+        document.getElementById('od-dialog-icon').innerHTML = success
+          ? '<svg width="32" height="32" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg>'
+          : danger
+          ? '<svg width="30" height="30" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M12 9v4m0 4h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>'
+          : (withInput
+            ? '<svg width="30" height="30" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>'
+            : '<svg width="30" height="30" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3M12 17h.01"/></svg>');
         const input = document.getElementById('od-dialog-input');
         input.classList.toggle('hidden', !withInput);
         input.value = withInput ? (defaultValue || '') : '';
@@ -10419,6 +10515,8 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
     };
     // Resolves true/null (mirrors window.confirm's true/false, but via await).
     window.odConfirm = function(message, opts) { return odDialogOpen(message, opts); };
+    // Result popup with a single OK button (success tick).
+    window.odAlert = function(message, opts) { return odDialogOpen(message, Object.assign({ success: true }, opts || {})); };
     // Resolves the typed string, or null if cancelled (mirrors window.prompt).
     window.odPrompt = function(message, defaultValue) { return odDialogOpen(message, { withInput: true, defaultValue }); };
 
@@ -11833,17 +11931,66 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
     // item's own Sell Price. Code/age-group/category are left for the
     // admin to fill in afterward through the normal Add/Edit Model flow — this just saves having
     // to re-upload every photo and retype every price by hand.
+    // Choose where a received order goes: a brand-new folder of its own, or appended to an existing
+    // folder (its serial numbering simply continues). Resolves {mode:'new'} | {mode:'existing',
+    // folderId} | null when cancelled.
+    window.odPickDestination = function(orderName, count) {
+      return new Promise(resolve => {
+        const folders = allFolders.filter(f => !f.deleted).sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
+        let chosen = null;
+        const bd = document.createElement('div');
+        bd.className = 'od-dialog-backdrop';
+        bd.style.zIndex = '99991';
+        const esc = (t) => String(t).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+        const rows = folders.map(f => {
+          const c = allModels.filter(m => m.folderId === f.id).length;
+          return `<button type="button" class="dest-row" data-id="${f.id}"><span class="dest-ico">&#128193;</span><span class="dest-name">${esc(f.name || '')}</span><span class="dest-count">${c}</span></button>`;
+        }).join('');
+        bd.innerHTML = `
+          <div class="od-dialog-card dest-card">
+            <div class="dest-head"><span class="dest-head-ico">&#128230;</span>
+              <div><div class="dest-title">Send to Catalog</div><div class="dest-sub">${esc(orderName || '')} &middot; ${count} model(s)</div></div></div>
+            <button type="button" class="dest-opt dest-new" id="dest-new"><span class="dest-opt-ico">&#10133;</span>
+              <span><b>New separate folder</b><small>Create a folder named after this order</small></span></button>
+            <div class="dest-or">or add to an existing folder (numbering continues)</div>
+            <div class="dest-list">${rows || '<div class="dest-empty">No folders yet</div>'}</div>
+            <div class="od-dialog-actions"><button type="button" id="dest-cancel">Cancel</button>
+              <button type="button" class="od-dialog-ok-btn" id="dest-ok" disabled>Add here</button></div>
+          </div>`;
+        document.body.appendChild(bd);
+        const close = (v) => { bd.remove(); resolve(v); };
+        bd.addEventListener('click', e => { if (e.target === bd) close(null); });
+        bd.querySelector('#dest-cancel').onclick = () => close(null);
+        bd.querySelector('#dest-new').onclick = () => close({ mode: 'new' });
+        const ok = bd.querySelector('#dest-ok');
+        bd.querySelectorAll('.dest-row').forEach(r => r.onclick = () => {
+          bd.querySelectorAll('.dest-row').forEach(x => x.classList.remove('sel'));
+          r.classList.add('sel'); chosen = r.dataset.id; ok.disabled = false;
+        });
+        ok.onclick = () => { if (chosen) close({ mode: 'existing', folderId: chosen }); };
+      });
+    };
+
     window.convertOrderToFolder = async function() {
       if (!currentOrder || !currentOrder.receiveDate) return;
       if (!(window._fbSaveFolder && window._fbSave)) return;
       const items = currentOrder.items || [];
       if (!items.length) { showToast('This order has no items', 'error'); return; }
-      if (!(await window.odConfirm(`Create a new folder "${currentOrder.name}" with ${items.length} model(s)?`))) return;
+      const dest = await window.odPickDestination(currentOrder.name, items.length);
+      if (!dest) return;
       try {
         const cnyRate = parseFloat(currentOrder.cnyRate) || 0;
         const iqdRate = parseFloat(currentOrder.usdToIqdRate) || 0;
         const shipPerPiece = orderShipPerPiece(currentOrder);
-        const folderId = await window._fbSaveFolder({ name: currentOrder.name || 'New Order', color: '#e85d3a', hiddenFromSearch: false }, null);
+        let folderId, serialBase = 0;
+        if (dest.mode === 'existing') {
+          // Continue the counter of the chosen folder: new models start right after its highest serial.
+          folderId = dest.folderId;
+          const nums = allModels.filter(m => m.folderId === folderId).map(m => Number(m.serial) || 0);
+          serialBase = nums.length ? Math.max(...nums) + 1 : 0;
+        } else {
+          folderId = await window._fbSaveFolder({ name: currentOrder.name || 'New Order', color: '#e85d3a', hiddenFromSearch: false }, null);
+        }
         let n = 0;
         for (let i = 0; i < items.length; i++) {
           const it = items[i];
@@ -11851,7 +11998,7 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
           const realCostIqd = iqdRate > 0 ? (unitUsd + shipPerPiece) * iqdRate : 0;
           await window._fbSave({
             modelCode: (it.code||'').trim() || `${(currentOrder.name||'ORD').replace(/\s+/g,'')}-${i+1}`,
-            serial: i,
+            serial: serialBase + i,
             ageGroup: '',
             price: Math.round(parseFloat(it.sellPrice) || 0),
             imageUrl: it.imageUrl || '',
@@ -11861,8 +12008,13 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
           }, null);
           n++;
         }
-        showToast(`✓ Folder created with ${n} model(s)`, 'success');
-        window.goHome();
+        if (dest.mode === 'existing') {
+          showToast(`✓ ${n} model(s) added to the folder`, 'success');
+          if (window._appState && window._appState.showFolderView) window._appState.showFolderView(folderId); else window.goHome();
+        } else {
+          showToast(`✓ Folder created with ${n} model(s)`, 'success');
+          window.goHome();
+        }
       } catch(e) { console.error(e); showToast('An error occurred while creating the folder', 'error'); }
     };
 
@@ -13065,7 +13217,7 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
     // window._fbClearAnalyticsEvents — since those Firebase SDK imports aren't in scope here.
     window.clearAllAnalyticsData = async function() {
       if (!(window._canDeletePermanentlyUI && window._canDeletePermanentlyUI())) return;
-      if (!window.confirm('Permanently delete ALL analytics data (downloads, shares, opens)? This cannot be undone.')) return;
+      if (!(await window.odConfirm('Permanently delete ALL analytics data (downloads, shares, opens)? This cannot be undone.', { danger: true }))) return;
       try {
         await window._fbClearAnalyticsEvents();
         showToast('All analytics data cleared ✓', 'success');
@@ -13618,7 +13770,7 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
       if (!targets.length) { window._appState && window._appState.showToast('No records to delete', 'error'); return; }
       const roleLabel = roleFilter === 'all' ? 'All' : roleFilter === 'admin' ? 'Admin' : roleFilter === 'co_admin' ? 'Co-Admin' : 'User';
       const modeLabel = mode === 'active' ? 'Active' : 'All';
-      if (!confirm(`Delete ${targets.length} record(s) (${modeLabel} – ${roleLabel})?`)) return;
+      if (!(await window.odConfirm(`Delete ${targets.length} record(s) (${modeLabel} – ${roleLabel})?`, { danger: true }))) return;
       try {
         await Promise.all(targets.map(l => window._fbDeleteLoginLog(l.id)));
         _allSessionLogs = _allSessionLogs.filter(l => !targets.find(t => t.id === l.id));
@@ -14290,6 +14442,18 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
       return n;
     };
 
+    window._fbBulkClearNotes = async function(ids) {
+      let n = 0;
+      await Promise.all(ids.map(async (id) => {
+        const idx = S.allModels.findIndex(m => m.id === id);
+        if (idx === -1) return;
+        await updateDoc(doc(db, "models", id), { noteText: '', updatedAt: serverTimestamp() });
+        S.allModels[idx] = { ...S.allModels[idx], noteText: '', updatedAt: Date.now() };
+        n++;
+      }));
+      return n;
+    };
+
     window._fbSave = async function(data, eid) {
       // Save folderId before any call that might change state
       const savedFolderId = data.folderId;
@@ -14389,7 +14553,7 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
     };
 
     window.pendingDeleteConfirm = async function(modelId, imageUrl) {
-      if (!confirm("Delete permanently? This cannot be undone")) return;
+      if (!(await window.odConfirm("Delete permanently? This cannot be undone", { danger: true }))) return;
       try {
         await deleteDoc(doc(db,"models",modelId));
         S.showToast("Permanently deleted ✓","success");
