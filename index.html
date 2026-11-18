@@ -3534,28 +3534,36 @@ service cloud.firestore {
           </div>
         </div>
 
-        <!-- Custom text note — optional, freely positioned/rotated over the photo (unlike the
-             code/price/age badges, which always sit in a fixed corner). dir="auto" so the input
-             itself lays out correctly whether the admin types Arabic, Kurdish, or English; the
-             drawn text on the actual exported image separately detects direction from the text
-             content (see drawModelNoteOnCanvas/_isRtlText), independent of the app's UI language. -->
+        <!-- Custom text note — Instagram-story style caption drawn onto the exported photo.
+             Multi-line (each line gets its own rounded highlight like IG "Highlight" text), freely
+             positioned/rotated/sized. The preview is a canvas drawn by the SAME function the
+             exports use (drawModelNoteOnCanvas), so what you see is exactly what is exported. -->
         <div class="mb-1">
           <label class="block text-xs font-bold text-gray-600 mb-1.5" data-i18n="noteText">Custom Text (optional)</label>
-          <input id="f-note-text" type="text" dir="auto" data-i18n-ph="noteTextPh"
-            class="w-full h-10 px-3 rounded-xl border border-gray-200 bg-gray-50 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-[#e85d3a]/30 focus:border-[#e85d3a] transition"
-            oninput="window.onModelNoteTextInput()" />
-          <p class="text-[11px] text-gray-400 mt-1" data-i18n="noteTextHint">Drag the text on the photo below to position it; use the slider to rotate.</p>
-          <div id="note-preview-box" class="hidden mt-2 relative rounded-xl overflow-hidden bg-gray-100" style="touch-action:none;">
-            <img id="note-preview-img" class="w-full block pointer-events-none select-none" />
-            <div id="note-drag-handle"
-              class="absolute font-extrabold text-white px-1 whitespace-nowrap cursor-grab active:cursor-grabbing select-none"
-              style="left:50%; top:85%; transform:translate(-50%,-50%) rotate(0deg); text-shadow:0 1px 6px rgba(0,0,0,0.85); font-size:20px; touch-action:none;"
-              onpointerdown="window.startModelNoteDrag(event)"></div>
-          </div>
-          <div id="note-angle-row" class="hidden items-center gap-2 mt-2">
-            <span class="text-[11px] font-bold text-gray-400" data-i18n="noteRotate">Rotate:</span>
-            <input id="f-note-angle" type="range" min="0" max="359" value="0" class="flex-1 accent-[#e85d3a]" oninput="window.onModelNoteAngleInput(this.value)" />
-            <span id="note-angle-val" class="text-[11px] font-bold text-gray-500 w-10 text-right">0°</span>
+          <textarea id="f-note-text" rows="3" dir="auto" data-i18n-ph="noteTextPh"
+            class="w-full px-3 py-2 rounded-xl border border-gray-200 bg-gray-50 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-[#e85d3a]/30 focus:border-[#e85d3a] transition"
+            style="line-height:1.6;resize:vertical;" oninput="window.onModelNoteTextInput()"></textarea>
+          <p class="text-[11px] text-gray-400 mt-1" data-i18n="noteTextHint">Each line becomes its own box. Drag on the photo to position it.</p>
+          <div id="note-tools" class="hidden mt-2 space-y-2">
+            <div id="note-preview-box" class="relative rounded-xl overflow-hidden bg-gray-100" style="touch-action:none;">
+              <img id="note-preview-img" class="w-full block pointer-events-none select-none" onload="window.onModelNoteTextInput()" />
+              <canvas id="note-preview-canvas" class="absolute inset-0 w-full h-full cursor-grab" style="touch-action:none;" onpointerdown="window.startModelNoteDrag(event)"></canvas>
+            </div>
+            <div class="flex gap-2">
+              <button type="button" id="note-style-highlight" onclick="window.setModelNoteStyle('highlight')" class="flex-1 h-9 rounded-xl text-xs font-bold border border-gray-200" data-i18n="noteStyleHighlight">Highlight</button>
+              <button type="button" id="note-style-plain" onclick="window.setModelNoteStyle('plain')" class="flex-1 h-9 rounded-xl text-xs font-bold border border-gray-200" data-i18n="noteStylePlain">Plain</button>
+            </div>
+            <div id="note-swatches" class="flex items-center gap-2 flex-wrap"></div>
+            <div class="flex items-center gap-2">
+              <span class="text-[11px] font-bold text-gray-400 w-12" data-i18n="noteSize">Size</span>
+              <input id="f-note-size" type="range" min="50" max="220" value="100" class="flex-1 accent-[#e85d3a]" oninput="window.onModelNoteSizeInput(this.value)" />
+              <span id="note-size-val" class="text-[11px] font-bold text-gray-500 w-10 text-right">100%</span>
+            </div>
+            <div id="note-angle-row" class="flex items-center gap-2">
+              <span class="text-[11px] font-bold text-gray-400 w-12" data-i18n="noteRotate">Rotate:</span>
+              <input id="f-note-angle" type="range" min="0" max="359" value="0" class="flex-1 accent-[#e85d3a]" oninput="window.onModelNoteAngleInput(this.value)" />
+              <span id="note-angle-val" class="text-[11px] font-bold text-gray-500 w-10 text-right">0&deg;</span>
+            </div>
           </div>
         </div>
 
@@ -4644,7 +4652,7 @@ service cloud.firestore {
         modelCode: 'كود الموديل *',
         serialNumber: 'الرقم التسلسلي *',
         noteText: 'نص مخصص (اختياري)', noteTextPh: 'اكتب أي نص...',
-        noteTextHint: 'اسحب النص فوق الصورة بالأسفل لتحديد مكانه؛ استخدم الشريط للتدوير.',
+        noteTextHint: 'كل سطر يصير في مربع مستقل. اسحب على الصورة لتحديد المكان.', noteStyleHighlight: 'مظلّل (ستوري)', noteStylePlain: 'عادي', noteSize: 'الحجم',
         noteRotate: 'تدوير:',
         ageGroup: 'الفئة العمرية *',
         addRange: 'أضف فترة',
@@ -4821,7 +4829,7 @@ service cloud.firestore {
         modelCode: 'کۆدی مۆدێل *',
         serialNumber: 'ژمارەی زنجیرەیی *',
         noteText: 'نووسینی تایبەت (ئارەزوومەندانە)', noteTextPh: 'هەر نووسینێک بنووسە...',
-        noteTextHint: 'نووسینەکە بۆ سەر وێنەکە ڕاکێشە بۆ دیاریکردنی شوێنی؛ شریتەکە بۆ سوڕاندن بەکاربهێنە.',
+        noteTextHint: 'هەر دێڕێک دەبێتە سندوقێکی جیا. لەسەر وێنەکە ڕایبکێشە بۆ شوێن.', noteStyleHighlight: 'هایلایت (ستۆری)', noteStylePlain: 'ئاسایی', noteSize: 'قەبارە',
         noteRotate: 'سوڕاندن:',
         ageGroup: 'گروپی تەمەن *',
         addRange: 'ماوە زیاد بکە',
@@ -4998,7 +5006,7 @@ service cloud.firestore {
         modelCode: 'Model Code *',
         serialNumber: 'Serial Number *',
         noteText: 'Custom Text (optional)', noteTextPh: 'Type any text...',
-        noteTextHint: 'Drag the text on the photo below to position it; use the slider to rotate.',
+        noteTextHint: 'Each line becomes its own box. Drag on the photo to position it.', noteStyleHighlight: 'Highlight', noteStylePlain: 'Plain', noteSize: 'Size',
         noteRotate: 'Rotate:',
         ageGroup: 'Age Group *',
         addRange: 'Add range',
@@ -5245,7 +5253,7 @@ service cloud.firestore {
     // Working state for the Add/Edit Model form's optional custom-text overlay — x/y are 0-100
     // (percent of the preview box, which maps 1:1 to the photo's own drawn area at export time
     // since the preview image is shown unscaled/uncropped); angle is degrees.
-    let _modelNoteState = { x: 50, y: 85, angle: 0 };
+    let _modelNoteState = { x: 50, y: 85, angle: 0, size: 100, style: 'highlight', bg: '#2f9bf0' };
 
     // Folder state
     let currentFolderId   = null;  // null = home/folders view
@@ -7318,23 +7326,45 @@ service cloud.firestore {
     // in this app's Kurdish-text handling.
     function _isRtlText(s) { return /[֐-ࣿיִ-﷿ﹰ-﻿]/.test(s || ''); }
     function drawModelNoteOnCanvas(ctx, m, originX, originY, areaW, areaH) {
-      const text = (m.noteText || '').trim();
-      if (!text) return;
+      const raw = (m.noteText || '').replace(/\r/g, '');
+      const lines = raw.split('\n').map(l => l.trim()).filter(Boolean);
+      if (!lines.length) return;
       const nx = (m.noteX != null ? m.noteX : 50) / 100;
       const ny = (m.noteY != null ? m.noteY : 85) / 100;
       const angle = (m.noteAngle || 0) * Math.PI / 180;
-      const fs = Math.max(10, Math.round(areaW * 0.055));
+      const scale = (m.noteSize != null ? m.noteSize : 100) / 100;
+      const fs = Math.max(10, Math.round(areaW * 0.055 * scale));
+      const style = m.noteStyle === 'plain' ? 'plain' : 'highlight';
+      const bg = m.noteBg || '#2f9bf0';
+      const lineH = fs * 1.32;
+      const padX = fs * 0.5, radius = fs * 0.42;
       ctx.save();
       ctx.translate(originX + nx * areaW, originY + ny * areaH);
       ctx.rotate(angle);
-      ctx.direction = _isRtlText(text) ? 'rtl' : 'ltr';
-      ctx.font = `800 ${fs}px Arial`;
+      ctx.direction = _isRtlText(raw) ? 'rtl' : 'ltr';
+      ctx.font = `700 ${fs}px "Segoe UI", Tahoma, Arial, sans-serif`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.shadowColor = 'rgba(0,0,0,0.8)';
-      ctx.shadowBlur = Math.max(4, fs * 0.25);
-      ctx.fillStyle = '#fff';
-      ctx.fillText(text, 0, 0);
+      const top = -(lines.length * lineH) / 2;
+      if (style === 'highlight') {
+        // One rounded box per line, hugging its own width and overlapping slightly so the stack
+        // reads as a single Instagram-style highlighted block.
+        const widths = lines.map(l => ctx.measureText(l).width + padX * 2);
+        ctx.fillStyle = bg;
+        lines.forEach((l, i) => {
+          const w = widths[i], y = top + i * lineH;
+          ctx.beginPath();
+          ctx.roundRect(-w / 2, y - lineH * 0.02, w, lineH * 1.04, radius);
+          ctx.fill();
+        });
+        ctx.fillStyle = badgeTextColor(bg);
+        lines.forEach((l, i) => ctx.fillText(l, 0, top + i * lineH + lineH / 2));
+      } else {
+        ctx.shadowColor = 'rgba(0,0,0,0.8)';
+        ctx.shadowBlur = Math.max(4, fs * 0.25);
+        ctx.fillStyle = m.noteBg && m.noteBg !== '#2f9bf0' ? m.noteBg : '#fff';
+        lines.forEach((l, i) => ctx.fillText(l, 0, top + i * lineH + lineH / 2));
+      }
       ctx.restore();
     }
 
@@ -8712,6 +8742,9 @@ service cloud.firestore {
         x: model.noteX != null ? model.noteX : 50,
         y: model.noteY != null ? model.noteY : 85,
         angle: model.noteAngle || 0,
+        size: model.noteSize != null ? model.noteSize : 100,
+        style: model.noteStyle || 'highlight',
+        bg: model.noteBg || '#2f9bf0',
       };
       window.onModelNoteTextInput();
       document.getElementById("f-img-size").value = model.imageSize || "original";
@@ -8983,8 +9016,9 @@ service cloud.firestore {
         }
         const data = {
           modelCode: code, serial, ageGroup: age, price, imageUrl, imageSize,
-          noteText: document.getElementById("f-note-text")?.value.trim() || '',
+          noteText: (document.getElementById("f-note-text")?.value || '').split('\n').map(l => l.trim()).filter(Boolean).join('\n'),
           noteX: _modelNoteState.x, noteY: _modelNoteState.y, noteAngle: _modelNoteState.angle,
+          noteSize: _modelNoteState.size, noteStyle: _modelNoteState.style, noteBg: _modelNoteState.bg,
           category: document.getElementById("f-category")?.value || '',
           season:   document.getElementById("f-season")?.value || '',
           gender:   document.getElementById("f-gender")?.value || '',
@@ -9069,51 +9103,68 @@ service cloud.firestore {
     // mirrors the real export exactly: the image is shown unscaled (width:100%, height:auto, no
     // crop), so a drag position captured here as a 0-100% fraction maps 1:1 onto the actual
     // photo area in every export canvas (see drawModelNoteOnCanvas).
-    window.onModelNoteTextInput = function() {
-      const text = document.getElementById("f-note-text").value;
-      const hasImage = !!document.getElementById("note-preview-img").src;
-      const box = document.getElementById("note-preview-box");
-      const handle = document.getElementById("note-drag-handle");
-      const angleRow = document.getElementById("note-angle-row");
-      const show = !!text.trim() && hasImage;
-      box.classList.toggle("hidden", !show);
-      angleRow.classList.toggle("hidden", !show);
-      angleRow.classList.toggle("flex", show);
-      if (show) {
-        handle.textContent = text;
-        handle.style.left = _modelNoteState.x + '%';
-        handle.style.top = _modelNoteState.y + '%';
-        handle.style.transform = `translate(-50%,-50%) rotate(${_modelNoteState.angle}deg)`;
-        handle.dir = 'auto';
-        const slider = document.getElementById("f-note-angle");
-        slider.value = _modelNoteState.angle;
-        document.getElementById("note-angle-val").textContent = Math.round(_modelNoteState.angle) + '°';
+    const _NOTE_COLORS = ['#2f9bf0','#ef4444','#111111','#ffffff','#e85d3a','#16a34a','#8b5cf6','#ec4899'];
+    function _noteModel() {
+      return { noteText: document.getElementById("f-note-text").value, noteX: _modelNoteState.x, noteY: _modelNoteState.y,
+               noteAngle: _modelNoteState.angle, noteSize: _modelNoteState.size, noteStyle: _modelNoteState.style, noteBg: _modelNoteState.bg };
+    }
+    function _noteRedraw() {
+      const img = document.getElementById("note-preview-img");
+      const cv = document.getElementById("note-preview-canvas");
+      if (!img || !cv || !img.naturalWidth) return;
+      const W = Math.min(1080, img.naturalWidth), H = Math.round(W * img.naturalHeight / img.naturalWidth);
+      if (cv.width !== W || cv.height !== H) { cv.width = W; cv.height = H; }
+      const ctx = cv.getContext('2d');
+      ctx.clearRect(0, 0, W, H);
+      drawModelNoteOnCanvas(ctx, _noteModel(), 0, 0, W, H);
+    }
+    function _noteSyncControls() {
+      const hi = _modelNoteState.style !== 'plain';
+      [['note-style-highlight', hi], ['note-style-plain', !hi]].forEach(([id, on]) => {
+        const b = document.getElementById(id); if (!b) return;
+        b.style.background = on ? 'linear-gradient(135deg,#ff7a5a,#e85d3a)' : '';
+        b.style.color = on ? '#fff' : ''; b.style.borderColor = on ? '#e85d3a' : '';
+      });
+      const sw = document.getElementById('note-swatches');
+      if (sw) {
+        if (!sw.childElementCount) {
+          sw.innerHTML = _NOTE_COLORS.map(c => `<button type="button" data-c="${c}" onclick="window.setModelNoteColor('${c}')" style="width:30px;height:30px;border-radius:50%;background:${c};border:2px solid #d1d5db;"></button>`).join('');
+        }
+        sw.querySelectorAll('button').forEach(b => { b.style.boxShadow = b.dataset.c === _modelNoteState.bg ? '0 0 0 3px #e85d3a' : 'none'; });
       }
+      const sl = document.getElementById("f-note-size"); if (sl) sl.value = _modelNoteState.size;
+      const sv = document.getElementById("note-size-val"); if (sv) sv.textContent = Math.round(_modelNoteState.size) + '%';
+      const an = document.getElementById("f-note-angle"); if (an) an.value = _modelNoteState.angle;
+      const av = document.getElementById("note-angle-val"); if (av) av.textContent = Math.round(_modelNoteState.angle) + '\u00b0';
+    }
+    window.onModelNoteTextInput = function() {
+      const hasText = !!document.getElementById("f-note-text").value.trim();
+      const hasImage = !!document.getElementById("note-preview-img").getAttribute('src');
+      document.getElementById("note-tools").classList.toggle("hidden", !(hasText && hasImage));
+      _noteSyncControls();
+      _noteRedraw();
     };
     window.onModelNoteAngleInput = function(val) {
-      _modelNoteState.angle = parseFloat(val) || 0;
-      document.getElementById("note-angle-val").textContent = Math.round(_modelNoteState.angle) + '°';
-      document.getElementById("note-drag-handle").style.transform = `translate(-50%,-50%) rotate(${_modelNoteState.angle}deg)`;
+      _modelNoteState.angle = parseFloat(val) || 0; _noteSyncControls(); _noteRedraw();
     };
+    window.onModelNoteSizeInput = function(val) {
+      _modelNoteState.size = parseFloat(val) || 100; _noteSyncControls(); _noteRedraw();
+    };
+    window.setModelNoteStyle = function(st) { _modelNoteState.style = st; _noteSyncControls(); _noteRedraw(); };
+    window.setModelNoteColor = function(c) { _modelNoteState.bg = c; _noteSyncControls(); _noteRedraw(); };
     window.startModelNoteDrag = function(ev) {
       ev.preventDefault();
-      ev.stopPropagation();
-      const box = document.getElementById("note-preview-box");
-      const handle = document.getElementById("note-drag-handle");
-      const boxRect = box.getBoundingClientRect();
+      const cv = document.getElementById("note-preview-canvas");
       const move = (e) => {
-        const x = Math.min(100, Math.max(0, ((e.clientX - boxRect.left) / boxRect.width) * 100));
-        const y = Math.min(100, Math.max(0, ((e.clientY - boxRect.top) / boxRect.height) * 100));
-        _modelNoteState.x = x; _modelNoteState.y = y;
-        handle.style.left = x + '%';
-        handle.style.top = y + '%';
+        const r = cv.getBoundingClientRect();
+        _modelNoteState.x = Math.min(100, Math.max(0, ((e.clientX - r.left) / r.width) * 100));
+        _modelNoteState.y = Math.min(100, Math.max(0, ((e.clientY - r.top) / r.height) * 100));
+        _noteRedraw();
       };
-      const up = () => {
-        document.removeEventListener('pointermove', move);
-        document.removeEventListener('pointerup', up);
-      };
-      document.addEventListener('pointermove', move);
-      document.addEventListener('pointerup', up);
+      const up = () => { cv.removeEventListener('pointermove', move); cv.removeEventListener('pointerup', up); cv.removeEventListener('pointercancel', up); };
+      try { cv.setPointerCapture(ev.pointerId); } catch(e) {}
+      cv.addEventListener('pointermove', move); cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
+      move(ev);
     };
 
     // ── Toggle Specs ──
