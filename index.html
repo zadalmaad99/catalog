@@ -9258,6 +9258,7 @@ service cloud.firestore {
       _noteRenderTabs();
     }
     function _noteSavePayload() {
+      _noteFlushText();
       const kept = _noteList.map(n => Object.assign({}, n, { text: _cleanNoteText(n.text) })).filter(n => n.text);
       const p = kept[0] || _noteDefault();
       return {
@@ -9288,8 +9289,16 @@ service cloud.firestore {
       box.style.rowGap = '8px';
       _noteSyncControls();
     }
+    // Commit whatever is in the input into the note it belongs to BEFORE the active note changes
+    // (blur forces the on-screen keyboard to commit a pending word), so no text is ever lost.
+    function _noteFlushText() {
+      const t = document.getElementById('f-note-text'); if (!t) return;
+      if (document.activeElement === t) t.blur();
+      if (_modelNoteState) _modelNoteState.text = t.value;
+    }
     window.selectModelNote = function(i) {
       if (i < 0 || i >= _noteList.length) return;
+      _noteFlushText();
       _noteActive = i; _modelNoteState = _noteList[i];
       document.getElementById("f-note-text").value = _modelNoteState.text || '';
       _noteRenderTabs(); _noteSyncControls(); _noteRedraw();
@@ -9297,9 +9306,10 @@ service cloud.firestore {
     window.addModelNote = function() {
       if (_noteList.length >= 6) return;
       const last = _modelNoteState;
+      _noteFlushText();
       _noteList.push(_noteDefault({ y: (last.y || 50) <= 50 ? 65 : 30, bg: last.bg, style: last.style }));
       window.selectModelNote(_noteList.length - 1);
-      const t = document.getElementById("f-note-text"); if (t) t.focus({ preventScroll: true });
+      setTimeout(() => { const t = document.getElementById("f-note-text"); if (t) t.focus({ preventScroll: true }); }, 80);
     };
     window.resetModelNoteColor = function() {
       _modelNoteState.bg = '#2f9bf0'; _modelNoteState.style = 'highlight';
