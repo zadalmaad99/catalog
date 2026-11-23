@@ -6602,7 +6602,7 @@ service cloud.firestore {
     function dlModeAllows(m) {
       const has = !!(m.noteText || '').trim();
       if (dlSelectedMode === 'all') return !has;
-      if (dlSelectedMode === 'code' || dlSelectedMode === 'note') return has;
+      if (dlSelectedMode === 'note') return has;
       return true;
     }
 
@@ -9925,9 +9925,9 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
       await mapWithConcurrency(models, 6, async (m, _i) => {
       if (_galleryCancelled) return;
       const _hasNote=!!(m.noteText||"").trim();
-      // "All Info" skips photos that carry a custom text; "Code Only" keeps ONLY those photos.
+      // "All Info" skips photos that carry a custom text; "Custom Text" keeps ONLY those photos; "Code Only" downloads every photo.
       if(mode==="all"&&_hasNote) return;
-      if((mode==="code"||mode==="note")&&!_hasNote) return;
+      if(mode==="note"&&!_hasNote) return;
       const _seq=String(_i+1).padStart(Math.max(padLen,3),'0');
         try{
           let imgUrl = downloadCloudinaryUrl(m.imageUrl, m.imageSize, format);
@@ -10191,7 +10191,7 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
       // Same rule as the ZIP export: "all" skips photos with a custom text, "code" keeps only them.
       const _hasNote = !!(m.noteText || '').trim();
       if (mode === 'all' && _hasNote) return null;
-      if ((mode === 'code' || mode === 'note') && !_hasNote) return null;
+      if (mode === 'note' && !_hasNote) return null;
       const imgUrl = downloadCloudinaryUrl(m.imageUrl, m.imageSize, 'jpg');
       if (!imgUrl) return null;
       const resp = await fetch(imgUrl);
