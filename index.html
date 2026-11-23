@@ -4547,6 +4547,11 @@ service cloud.firestore {
               <span class="text-base">📷</span>
               <div><p class="text-xs font-bold text-gray-800" data-i18n="dlStyleOriginal">Original</p><p class="text-[10px] text-gray-400 leading-tight" data-i18n="dlStyleOriginal">Original</p></div>
             </button>
+            <button id="dl-style-note" onclick="selectDlMode('note',this)"
+              class="col-span-2 flex items-center gap-2 px-3 py-2 rounded-xl border-2 border-transparent bg-gray-50 text-left transition-all">
+              <span class="text-base">✍️</span>
+              <div><p class="text-xs font-bold text-gray-800" data-i18n="dlStyleNote">Custom Text</p><p class="text-[10px] text-gray-400 leading-tight" data-i18n="dlStyleNoteDesc">Only photos with custom text</p></div>
+            </button>
           </div>
         </div>
 
@@ -4830,6 +4835,8 @@ service cloud.firestore {
         dlStyleCleanDesc: 'صورة نظيفة',
         dlStyleCode: 'الكود فقط',
         dlStyleOriginal: 'الأصلي',
+        dlStyleNote: 'نص مخصص',
+        dlStyleNoteDesc: 'الصور التي عليها نص مخصص فقط',
         dlSortOrder: 'ترتيب حسب',
         dlSortSerial: 'الرقم التسلسلي',
         dlSortCodeAsc: 'الكود أ ← ي',
@@ -5007,6 +5014,8 @@ service cloud.firestore {
         dlStyleCleanDesc: 'وێنەی پاک',
         dlStyleCode: 'تەنها کۆد',
         dlStyleOriginal: 'ڕەسەن',
+        dlStyleNote: 'نووسینی تایبەت',
+        dlStyleNoteDesc: 'تەنها وێنەکانی نووسینی تایبەت',
         dlSortOrder: 'ڕیزکردن بەپێی',
         dlSortSerial: 'ژمارەی زنجیرەیی',
         dlSortCodeAsc: 'کۆد ئ ← ی',
@@ -5184,6 +5193,8 @@ service cloud.firestore {
         dlStyleCleanDesc: 'Clean Image',
         dlStyleCode: 'Code Only',
         dlStyleOriginal: 'Original',
+        dlStyleNote: 'Custom Text',
+        dlStyleNoteDesc: 'Only photos with custom text',
         dlSortOrder: 'Sort order',
         dlSortSerial: 'Serial Number',
         dlSortCodeAsc: 'Code A → Z',
@@ -6287,7 +6298,7 @@ service cloud.firestore {
     // Select image STYLE/MODE (all/clean/code/manual)
     window.selectDlMode = function(mode, btnEl, silent) {
       dlSelectedMode = mode;
-      ['all','clean','code','manual'].forEach(m => {
+      ['all','clean','code','manual','note'].forEach(m => {
         const b = document.getElementById('dl-style-' + m);
         if (!b) return;
         if (m === mode) {
@@ -6553,7 +6564,7 @@ service cloud.firestore {
               ctx.fillText(model.modelCode || "", SIZE/2, SIZE - footerH/2 + codeFs/2);
             }
             drawModelNoteOnCanvas(ctx, model, x, y, w, h);
-          } else if (mode === 'clean') {
+          } else if (mode === 'clean' || mode === 'note') {
             drawModelNoteOnCanvas(ctx, model, x, y, w, h);
           }
           const mime = format === 'png' ? 'image/png' : 'image/jpeg';
@@ -6566,10 +6577,20 @@ service cloud.firestore {
       });
     }
 
+    // Image-style filter shared by PDF/SVG/PPTX: "all" skips photos with custom text,
+    // "code" and "note" keep only photos that have it.
+    function dlModeAllows(m) {
+      const has = !!(m.noteText || '').trim();
+      if (dlSelectedMode === 'all') return !has;
+      if (dlSelectedMode === 'code' || dlSelectedMode === 'note') return has;
+      return true;
+    }
+
     // ── PDF Download ──
     async function dlAsPdf(highQuality) {
       showToast("Generating PDF...", "info");
-      const models = sortModels(allModels.filter(m => dlSelectedModelIds.has(m.id)));
+      const models = sortModels(allModels.filter(m => dlSelectedModelIds.has(m.id))).filter(dlModeAllows);
+      if (!models.length) { showToast('No photos match the selected image style', 'error'); return; }
       const folder = allFolders.find(f => f.id === dlFolderId);
       const folderName = folder ? folder.name : "Folder";
       models.forEach(m => { if (window._logAnalyticsEvent) window._logAnalyticsEvent('download', { modelId: m.id, folderId: dlFolderId }); });
@@ -6630,7 +6651,8 @@ service cloud.firestore {
 
     // ── SVG Download ──
     async function dlAsSvg() {
-      const models = sortModels(allModels.filter(m => dlSelectedModelIds.has(m.id)));
+      const models = sortModels(allModels.filter(m => dlSelectedModelIds.has(m.id))).filter(dlModeAllows);
+      if (!models.length) { showToast('No photos match the selected image style', 'error'); return; }
       const folder = allFolders.find(f => f.id === dlFolderId);
       const folderName = folder ? folder.name : "Folder";
       showToast("Generating SVG...", "info");
@@ -6659,7 +6681,8 @@ service cloud.firestore {
     // ── PPTX Download ──
     async function dlAsPptx() {
       showToast("Generating PowerPoint...", "info");
-      const models = sortModels(allModels.filter(m => dlSelectedModelIds.has(m.id)));
+      const models = sortModels(allModels.filter(m => dlSelectedModelIds.has(m.id))).filter(dlModeAllows);
+      if (!models.length) { showToast('No photos match the selected image style', 'error'); return; }
       const folder = allFolders.find(f => f.id === dlFolderId);
       const folderName = folder ? folder.name : "Folder";
       models.forEach(m => { if (window._logAnalyticsEvent) window._logAnalyticsEvent('download', { modelId: m.id, folderId: dlFolderId }); });
@@ -9712,6 +9735,10 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
       showGalleryProgress(models.length);
       await mapWithConcurrency(models, 6, async (m, _i) => {
       if (_galleryCancelled) return;
+      const _hasNote=!!(m.noteText||"").trim();
+      // "All Info" skips photos that carry a custom text; "Code Only" keeps ONLY those photos.
+      if(mode==="all"&&_hasNote) return;
+      if((mode==="code"||mode==="note")&&!_hasNote) return;
       const _seq=String(_i+1).padStart(Math.max(padLen,3),'0');
         try{
           let imgUrl = downloadCloudinaryUrl(m.imageUrl, m.imageSize, format);
@@ -9721,7 +9748,7 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
           else{const resp=await fetch(imgUrl);if(!resp.ok) return;blob=await resp.blob();}
           const ct=blob.type||"image/jpeg";const ext=ct.includes("png")?"png":ct.includes("webp")?"webp":"jpg";
           let filename=`${_seq}_${m.modelCode||'model'}.${ext}`;
-          if(mode==="all"||mode==="code"||(mode==="clean"&&(m.noteText||"").trim())){
+          if(mode==="all"||mode==="code"||((mode==="clean"||mode==="note")&&(m.noteText||"").trim())){
             const canvas=document.createElement("canvas");const ctx=canvas.getContext("2d");const img=new Image();
             if(!imgUrl.startsWith('data:')) img.crossOrigin="anonymous";
             await new Promise(res=>{img.onload=async()=>{
@@ -9972,12 +9999,16 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
     // carries the same info instead of being a bare, unbranded photo.
     async function renderBadgedImageBlob(m, mode, outputMime) {
       outputMime = outputMime || 'image/jpeg';
+      // Same rule as the ZIP export: "all" skips photos with a custom text, "code" keeps only them.
+      const _hasNote = !!(m.noteText || '').trim();
+      if (mode === 'all' && _hasNote) return null;
+      if ((mode === 'code' || mode === 'note') && !_hasNote) return null;
       const imgUrl = downloadCloudinaryUrl(m.imageUrl, m.imageSize, 'jpg');
       if (!imgUrl) return null;
       const resp = await fetch(imgUrl);
       if (!resp.ok) return null;
       const rawBlob = await resp.blob();
-      if (mode === 'clean' && !(m.noteText || '').trim()) return rawBlob;
+      if ((mode === 'clean' || mode === 'note') && !(m.noteText || '').trim()) return rawBlob;
 
       const bmp = await createImageBitmap(rawBlob);
       const canvas = document.createElement('canvas');
