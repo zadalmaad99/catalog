@@ -6543,6 +6543,8 @@ service cloud.firestore {
             ctx.font = `bold ${codeFs}px system-ui`;
             ctx.textAlign = "center";
             if (mode === 'all') {
+              // Photos with a custom text carry no age group.
+              const _age = (model.noteText || '').trim() ? '' : (model.ageGroup || '');
               ctx.fillText(model.modelCode || "", SIZE/2, SIZE - footerH + codeFs + 4);
               if (priceInfo.hasDiscount) {
                 const origText = fmt(priceInfo.orig);
@@ -6550,7 +6552,7 @@ service cloud.firestore {
                 const pctText  = `${priceInfo.pct}%`;
                 ctx.fillStyle = "rgba(255,255,255,0.5)";
                 ctx.font = `${origFs}px system-ui`;
-                const origLine = `${origText}  ${model.ageGroup || ""}`;
+                const origLine = `${origText}  ${_age}`.trim();
                 ctx.fillText(origLine, SIZE/2, SIZE - footerH + codeFs + origFs + 10);
                 const origMetrics = ctx.measureText(origLine);
                 const origX = SIZE/2 - origMetrics.width/2;
@@ -6562,7 +6564,7 @@ service cloud.firestore {
                 ctx.lineTo(origX + origMetrics.width, strikeY);
                 ctx.stroke();
                 ctx.fillStyle = "#ef4444";
-                const discLabel = `${discText}  •  ${pctText}  •  ${model.ageGroup || ""}`;
+                const discLabel = [discText, pctText, _age].filter(Boolean).join("  •  ");
                 ctx.font = `bold ${discFs}px system-ui`;
                 const discMetrics = ctx.measureText(discLabel);
                 const pad = 16;
@@ -6577,7 +6579,7 @@ service cloud.firestore {
               } else {
                 ctx.fillStyle = "#fff";
                 ctx.font = `${ageFs}px system-ui`;
-                ctx.fillText(`${fmt(priceInfo.orig)}  •  ${model.ageGroup || ""}`, SIZE/2, SIZE - 16);
+                ctx.fillText([fmt(priceInfo.orig), _age].filter(Boolean).join("  •  "), SIZE/2, SIZE - 16);
               }
             } else {
               ctx.fillStyle = "#fff";
@@ -6597,11 +6599,9 @@ service cloud.firestore {
       });
     }
 
-    // Image-style filter shared by PDF/SVG/PPTX: "all" skips photos with custom text,
-    // "code" and "note" keep only photos that have it.
+    // Image-style filter shared by PDF/SVG/PPTX: only "note" filters (photos with custom text).
     function dlModeAllows(m) {
       const has = !!(m.noteText || '').trim();
-      if (dlSelectedMode === 'all') return !has;
       if (dlSelectedMode === 'note') return has;
       return true;
     }
@@ -9925,8 +9925,7 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
       await mapWithConcurrency(models, 6, async (m, _i) => {
       if (_galleryCancelled) return;
       const _hasNote=!!(m.noteText||"").trim();
-      // "All Info" skips photos that carry a custom text; "Custom Text" keeps ONLY those photos; "Code Only" downloads every photo.
-      if(mode==="all"&&_hasNote) return;
+      // "Custom Text" keeps ONLY photos with a custom text; every other style downloads all photos.
       if(mode==="note"&&!_hasNote) return;
       const _seq=String(_i+1).padStart(Math.max(padLen,3),'0');
         try{
@@ -9987,7 +9986,7 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
                 ctx.shadowBlur=0;
 
                 // ── TOP-RIGHT: age group badges ──
-                if(m.ageGroup){
+                if(m.ageGroup&&!_hasNote){
                   const ages=cleanAgeStr(m.ageGroup).split(',').map(a=>a.trim()).filter(Boolean);
                   ctx.font=`800 ${bfs}px Arial`;
                   // Canvas text doesn't run through the browser's normal bidi layout the way
@@ -10188,9 +10187,8 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
     // carries the same info instead of being a bare, unbranded photo.
     async function renderBadgedImageBlob(m, mode, outputMime) {
       outputMime = outputMime || 'image/jpeg';
-      // Same rule as the ZIP export: "all" skips photos with a custom text, "code" keeps only them.
+      // Same rule as the ZIP export: only "note" filters; in "all", photos with custom text get no age badge.
       const _hasNote = !!(m.noteText || '').trim();
-      if (mode === 'all' && _hasNote) return null;
       if (mode === 'note' && !_hasNote) return null;
       const imgUrl = downloadCloudinaryUrl(m.imageUrl, m.imageSize, 'jpg');
       if (!imgUrl) return null;
@@ -10240,7 +10238,7 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
         ctx.shadowBlur = 0; ctx.shadowColor = 'transparent';
         const ac = m.ageColor||'#00bcd4', cc = m.codeColor||'#ffffff', pc = m.priceColor||'#ffd600';
         // Age badges top-right
-        if (m.ageGroup) {
+        if (m.ageGroup && !_hasNote) {
           const ages = cleanAgeStr(m.ageGroup).split(',').map(a=>a.trim()).filter(Boolean);
           ctx.font = `800 ${bfs}px Arial`;
           // See the matching comment in the other badge-drawing function — canvas text needs
