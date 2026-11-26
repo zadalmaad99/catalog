@@ -9000,6 +9000,13 @@ service cloud.firestore {
       }
       if (!changed) return; // already at the top/bottom
 
+      // Tied serials (e.g. imported models) used to push values to 0 / negative after a few moves.
+      // If that happens, renumber the whole folder 1..n in the order now shown.
+      const _serials = siblings.map(x => Number(x.serial) || 0);
+      if (_serials.some(v => v < 1) || new Set(_serials).size !== _serials.length) {
+        siblings.forEach((x, i) => { if (Number(x.serial) !== i + 1) { x.serial = i + 1; dirty.add(x.id); } });
+      }
+
       moveSet.forEach(mid => { selectedIds.add(mid); });
       applyFilters(); // reflect immediately, don't wait on the round-trip
       updateSelectionBar(); updateSelectAllBtn();
@@ -9836,11 +9843,12 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
     // export, and the public share view) — appends a date+time-to-the-millisecond suffix so a
     // repeat download never collides with a same-named file already sitting in Downloads, which
     // is what triggers the browser's own "Download file again?" confirmation prompt.
+    function safeFilePart(s) { return String(s).replace(/[\\/:*?"<>|\x00-\x1f]+/g, '-'); }
     function buildDownloadFilename(prefix, ext) {
       const now = new Date();
       const pad = (n, len) => String(n).padStart(len || 2, '0');
       const stamp = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}${pad(now.getMilliseconds(), 3)}`;
-      return `${prefix}_${stamp}.${ext}`;
+      return `${safeFilePart(prefix)}_${stamp}.${ext}`;
     }
     // Exposed on window — the Statistics tab's export functions live in a later, separate
     // <script> tag (this app is split across several classic script blocks), where a plain
@@ -10075,7 +10083,7 @@ Use a negative number to reduce (e.g. 5000 or -5000):`, '5000');
             };img.src=imgUrl;});
             filename=`${_seq}_${m.modelCode||'model'}_${mode}.${outExt}`;
           } else { filename=`${_seq}_${m.modelCode||'model'}_${mode}.${outExt}`; }
-          zip.file(filename,blob);
+          zip.file(safeFilePart(filename),blob);
         }catch(e){console.warn(e);}
         _dlDone++;
         updateGalleryProgress(_dlDone, models.length, m.modelCode || '');
